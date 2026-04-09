@@ -37,3 +37,25 @@ export const getRoomDetails = async (roomId) => {
   const response = await apiClient.get(`/rooms/${roomId}`);
   return response.data;
 };
+
+// PUT /api/rooms/:id/categories
+export const updateRoomCategories = async (roomId, categoryIds) => {
+  const response = await apiClient.put(`/rooms/${roomId}/categories`, { categories: categoryIds });
+  return response.data;
+};
+
+export const getCategories = async () => {
+  const response = await apiClient.get('/categories');
+  return response.data;
+};
+
+export const startGame = async (roomId) => {
+  const response = await apiClient.post(`/game/${roomId}/start`);
+  return response.data;
+};
+
+// POST /api/game/:id/next-round
+export const nextRound = async (roomId, roundNumber) => {
+  const response = await apiClient.post(`/game/${roomId}/next-round`, { roundNumber });
+  return response.data;
+};
