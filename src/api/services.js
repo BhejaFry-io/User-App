@@ -49,13 +49,14 @@ export const getCategories = async () => {
   return response.data;
 };
 
-export const startGame = async (roomId) => {
-  const response = await apiClient.post(`/game/${roomId}/start`);
+// PUT /api/rooms/:id/settings
+export const updateRoomSettings = async (roomId, settings) => {
+  const response = await apiClient.put(`/rooms/${roomId}/settings`, { settings });
   return response.data;
 };
 
-// POST /api/game/:id/next-round
-export const nextRound = async (roomId, roundNumber) => {
-  const response = await apiClient.post(`/game/${roomId}/next-round`, { roundNumber });
+// POST /api/rooms/:id/start (Updated endpoint)
+export const startGame = async (roomId) => {
+  const response = await apiClient.post(`/rooms/${roomId}/start`);
   return response.data;
 };
