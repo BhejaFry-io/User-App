@@ -87,12 +87,21 @@ export default function Room() {
       setRevealedAnswers(data.correctAnswers);
     };
 
-    const onPlayerGuessedCorrectly = (data) => {
+const onPlayerGuessedCorrectly = (data) => {
       setParticipants(prev => prev.map(p => 
         p.user.id === data.userId ? { ...p, score: data.newTotalScore, justGuessed: true } : p
       ));
-      // BUG FIX 1: Clean separation. Uses explicitly sent username.
-      setChatLog(log => [...log, { system: true, text: `✅ ${data.username} guessed correctly! (+${data.pointsEarned} pts)` }]);
+      // UPDATE: Now displays the exact time taken!
+      setChatLog(log => [...log, { system: true, text: `✅ ${data.username} guessed correctly in ${data.timeTaken}s! (+${data.pointsEarned} pts)` }]);
+    };
+
+    const onPlayerLeft = (data) => {
+      setParticipants(prev => prev.filter(p => p.user.id !== data.userId));
+    };
+
+    const onHostUpdated = (data) => {
+      setRoomDetails(prev => ({ ...prev, hostUserId: data.newHostId }));
+      setChatLog(log => [...log, { system: true, text: `👑 The host has left. A new host has been assigned!` }]);
     };
 
     const onGuessResult = (data) => { if (data.success) { setHasGuessed(true); setGuessInput(''); } };
@@ -129,6 +138,8 @@ export default function Room() {
     socket.on('game_over', onGameOver);
     socket.on('game_restarted', onGameRestarted);
     socket.on('player_connected', fetchFreshParticipants); 
+    socket.on('player_left', onPlayerLeft);
+    socket.on('host_updated', onHostUpdated);
 
     // Robust explicit cleanup
     return () => {
@@ -143,6 +154,8 @@ export default function Room() {
       socket.off('game_over');
       socket.off('game_restarted');
       socket.off('player_connected');
+      socket.off('player_left', onPlayerLeft);
+      socket.off('host_updated', onHostUpdated);
     };
   }, [socket, roomId]);
 
@@ -253,7 +266,7 @@ export default function Room() {
                     roomDetails.categories.map(c => (
                       <div key={c.categoryId} className="flex items-center bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm shadow-sm">
                         <span className="truncate max-w-[120px]">{c.category?.name || "Unknown"}</span>
-                        {isHost && roomDetails?.status === 'WAITING' && (
+                        {isHost && roomDetails?.status !== 'PLAYING' && (
                           <button onClick={() => handleRemoveCategory(c.categoryId)} disabled={isUpdating} className="ml-2 pl-2 border-l border-blue-500 hover:text-red-300 transition-colors">✕</button>
                         )}
                       </div>
@@ -262,7 +275,7 @@ export default function Room() {
                 </div>
               </div>
 
-              {isHost && roomDetails?.status === 'WAITING' && (
+              {isHost && roomDetails?.status !== 'PLAYING' && (
                 <div className="pt-4 border-t border-gray-700 relative">
                   <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} disabled={isUpdating || unselectedCategories.length === 0} className="w-full bg-gray-700 hover:bg-gray-600 px-4 py-2.5 rounded-lg flex items-center justify-between text-sm mb-4">
                     {unselectedCategories.length === 0 ? "All categories added" : "+ Add Category"}
@@ -396,9 +409,14 @@ export default function Room() {
             Leave Room
           </button>
 
-          <div className="bg-gray-800 rounded-xl shadow-lg flex-grow flex flex-col overflow-hidden">
-            <div className="p-4 border-b border-gray-700 bg-gray-800/50">
-              <h3 className="text-lg font-semibold text-gray-300">Leaderboard <span className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full ml-2">{participants.length}</span></h3>
+<div className="bg-gray-800 rounded-xl shadow-lg flex-grow flex flex-col overflow-hidden">
+            <div className="p-4 border-b border-gray-700 bg-gray-800/50 flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-gray-300">
+                Leaderboard <span className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full ml-2">{participants.length}</span>
+              </h3>
+              <span className="text-xs font-bold text-yellow-500 bg-yellow-500/20 px-2 py-1 rounded border border-yellow-500/30">
+                🎯 Target: {settings.maxScore}
+              </span>
             </div>
             
             <ul className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">

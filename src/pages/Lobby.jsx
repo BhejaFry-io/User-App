@@ -90,7 +90,7 @@ export default function Lobby() {
                 placeholder="Enter Invite Code" 
                 value={inviteCode}
                 onChange={(e) => setInviteCode(e.target.value)}
-                className="w-full px-4 py-3 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
+                className="w-full px-4 py-3 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 maxLength={6}
               />
               <button 

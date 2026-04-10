@@ -11,7 +11,7 @@ export const SocketProvider = ({ children }) => {
   useEffect(() => {
     // Only connect if we have a valid JWT token
     if (token) {
-      const newSocket = io('http://localhost:3000', {
+      const newSocket = io('http://192.168.1.58:3000', {
         auth: {
           token: token // Pass the JWT to the backend middleware
         }
