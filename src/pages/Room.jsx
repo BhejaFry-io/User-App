@@ -38,9 +38,14 @@ export default function Room() {
   const inputRef = useRef(null);
   const isHost = user?.id && roomDetails?.hostUserId && user.id === roomDetails.hostUserId;
 
+  const currentCategoryIds = roomDetails?.categories?.map(c => c.categoryId) || [];
+  const unselectedCategories = allCategories.filter(cat => !currentCategoryIds.includes(cat.id));
+
+  // NEW NEUBRUTALIST TEXTURE: Blue-tinted gradient with a grid overlay
+  const panelTexture = "bg-gradient-to-br from-[#F8FAFC] to-[#D1EAFF] relative before:absolute before:inset-0 before:bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] before:opacity-[0.03] before:pointer-events-none";
+
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [chatLog]);
 
-  // Local Timer
   useEffect(() => {
     let timer;
     if (roundState === 'ACTIVE' && timeLeft > 0) {
@@ -51,24 +56,17 @@ export default function Room() {
     return () => clearInterval(timer);
   }, [roundState, timeLeft]);
 
-  // Auto-focus input when a new round starts
   useEffect(() => {
     if (roundState === 'ACTIVE' && !hasGuessed) {
-      // A tiny delay ensures the DOM has updated and the input is no longer disabled
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 50);
+      setTimeout(() => { inputRef.current?.focus(); }, 50);
     }
   }, [roundState, hasGuessed]);
 
-  // ==========================================
-  // SOCKET LISTENERS
-  // ==========================================
   useEffect(() => {
     if (!socket || !roomId) return;
     socket.emit('join_game_room', { roomId });
 
-const fetchFreshParticipants = async () => {
+    const fetchFreshParticipants = async () => {
       try {
         const res = await getRoomParticipants(roomId);
         if (res.success) {
@@ -83,392 +81,281 @@ const fetchFreshParticipants = async () => {
       } catch (e) {}
     };
 
-    const onRoomSettingsUpdated = (data) => { if (data.settings) setSettings(data.settings); };
-    const onRoomCategoriesUpdated = (data) => setRoomDetails(prev => ({...prev, categories: data.categories}));
-    const onGameStarted = (data) => {
+    socket.on('room_settings_updated', (data) => { if (data.settings) setSettings(data.settings); });
+    socket.on('room_categories_updated', (data) => setRoomDetails(prev => ({...prev, categories: data.categories})));
+    socket.on('game_started', (data) => {
       setRoomDetails(prev => ({ ...prev, status: data.status }));
-      if (data.settings) setSettings(data.settings); // <-- ADD THIS LINE
-    };
-    
-    const onRoundStarted = (data) => {
+      if (data.settings) setSettings(data.settings);
+    });
+    socket.on('round_started', (data) => {
       setRoundState('ACTIVE');
       setCurrentPrompt(data);
       setTimeLeft(data.duration);
       setHasGuessed(false);
       setRevealedAnswers([]);
       setParticipants(prev => prev.map(p => ({ ...p, justGuessed: false, timeTaken: null })));
-    };
-
-    const onRoundEnded = (data) => {
+    });
+    socket.on('round_ended', (data) => {
       setRoundState('ENDED');
       setTimeLeft(0);
       setRevealedAnswers(data.correctAnswers);
-    };
-
-const onPlayerGuessedCorrectly = (data) => {
+    });
+    socket.on('player_guessed_correctly', (data) => {
       setParticipants(prev => prev.map(p => 
-        p.user.id === data.userId 
-          // STORE the timeTaken here
-          ? { ...p, score: data.newTotalScore, justGuessed: true, timeTaken: data.timeTaken } 
-          : p
+        p.user.id === data.userId ? { ...p, score: data.newTotalScore, justGuessed: true, timeTaken: data.timeTaken } : p
       ));
-      // UPDATE: Now displays the exact time taken!
-      setChatLog(log => [...log, { system: true, text: `✅ ${data.username} guessed correctly in ${data.timeTaken}s! (+${data.pointsEarned} pts)` }]);
-    };
-
-    const onPlayerLeft = (data) => {
-      setParticipants(prev => prev.filter(p => p.user.id !== data.userId));
-    };
-
-    const onHostUpdated = (data) => {
+      setChatLog(log => [...log, { system: true, text: `🌟 ${data.username} Correct! (+${data.pointsEarned} pts)` }]);
+    });
+    socket.on('player_left', (data) => { setParticipants(prev => prev.filter(p => p.user.id !== data.userId)); });
+    socket.on('host_updated', (data) => {
       setRoomDetails(prev => ({ ...prev, hostUserId: data.newHostId }));
-      setChatLog(log => [...log, { system: true, text: `👑 The host has left. A new host has been assigned!` }]);
-    };
-
-    const onGuessResult = (data) => { if (data.success) { setHasGuessed(true); setGuessInput(''); } };
-    
-    const onChatMessage = (data) => {
-      // BUG FIX 1: Clean separation. Uses explicitly sent username.
-      setChatLog(log => [...log, { userId: data.userId, username: data.username, text: data.text }]);
-    };
-
-    const onGameOver = (data) => {
+      setChatLog(log => [...log, { system: true, text: `👑 NEW HOST ASSIGNED!` }]);
+    });
+    socket.on('guess_result', (data) => { if (data.success) { setHasGuessed(true); setGuessInput(''); } });
+    socket.on('chat_message', (data) => { setChatLog(log => [...log, { userId: data.userId, username: data.username, text: data.text }]); });
+    socket.on('game_over', (data) => {
       setRoundState('GAME_OVER');
       setRoomDetails(prev => ({...prev, status: 'FINISHED'}));
       setWinnerInfo(data);
-      setChatLog(log => [...log, { system: true, text: `🏆 Game Over! Winner: ${data.winnerName}` }]);
-    };
-
-    // BUG FIX 2: Handle restart trigger
-    const onGameRestarted = () => {
+    });
+    socket.on('game_restarted', () => {
       setRoundState('IDLE');
       setRoomDetails(prev => ({ ...prev, status: 'WAITING' }));
       setChatLog([]);
       setWinnerInfo(null);
       setParticipants(prev => prev.map(p => ({ ...p, score: 0, justGuessed: false, timeTaken: null })));
-    };
-
-    socket.on('room_settings_updated', onRoomSettingsUpdated);
-    socket.on('room_categories_updated', onRoomCategoriesUpdated);
-    socket.on('game_started', onGameStarted);
-    socket.on('round_started', onRoundStarted);
-    socket.on('round_ended', onRoundEnded);
-    socket.on('player_guessed_correctly', onPlayerGuessedCorrectly);
-    socket.on('guess_result', onGuessResult);
-    socket.on('chat_message', onChatMessage);
-    socket.on('game_over', onGameOver);
-    socket.on('game_restarted', onGameRestarted);
+    });
     socket.on('player_connected', fetchFreshParticipants); 
-    socket.on('player_left', onPlayerLeft);
-    socket.on('host_updated', onHostUpdated);
 
-    // Robust explicit cleanup
-    return () => {
-      socket.off('room_settings_updated');
-      socket.off('room_categories_updated');
-      socket.off('game_started');
-      socket.off('round_started');
-      socket.off('round_ended');
-      socket.off('player_guessed_correctly');
-      socket.off('guess_result');
-      socket.off('chat_message');
-      socket.off('game_over');
-      socket.off('game_restarted');
-      socket.off('player_connected');
-      socket.off('player_left', onPlayerLeft);
-      socket.off('host_updated', onHostUpdated);
-    };
+    return () => { socket.off(); };
   }, [socket, roomId]);
 
-  // ==========================================
-  // INITIAL DATA FETCHING
-  // ==========================================
   useEffect(() => {
-    getCategories().then(res => { if (res.success) setAllCategories(res.data); }).catch(()=>{});
+    getCategories().then(res => { if (res.success) setAllCategories(res.data); });
     getRoomDetails(roomId).then(res => {
       if (res.success) {
         setRoomDetails(res.data);
         if (res.data.settingsJson) setSettings(res.data.settingsJson);
       }
     }).catch(() => navigate('/'));
-    getRoomParticipants(roomId).then(res => { if (res.success) setParticipants(res.data); }).catch(()=>{});
+    getRoomParticipants(roomId).then(res => { if (res.success) setParticipants(res.data); });
   }, [roomId, navigate]);
 
-  // ==========================================
-  // HANDLERS
-  // ==========================================
   const handleLeave = async () => { try { await leaveRoom(roomId); navigate('/'); } catch (e) {} };
-
   const copyToClipboard = () => {
     navigator.clipboard.writeText(roomDetails.inviteCode);
     setCopied(true); setTimeout(() => setCopied(false), 2000);
   };
-
-  const currentCategoryIds = roomDetails?.categories?.map(c => c.categoryId) || [];
-  const unselectedCategories = allCategories.filter(cat => !currentCategoryIds.includes(cat.id));
-
   const handleAddCategory = async (id) => {
-    setIsUpdating(true); setIsDropdownOpen(false); 
+    setIsUpdating(true);
     try { 
       const res = await updateRoomCategories(roomId, [...currentCategoryIds, id]); 
       if (res.success) setRoomDetails(prev => ({...prev, categories: res.data.categories}));
-    } catch (e) { } finally { setIsUpdating(false); }
+    } finally { setIsUpdating(false); setIsDropdownOpen(false); }
   };
-
   const handleRemoveCategory = async (id) => {
     setIsUpdating(true);
     try { 
       const res = await updateRoomCategories(roomId, currentCategoryIds.filter(catId => catId !== id)); 
       if (res.success) setRoomDetails(prev => ({...prev, categories: res.data.categories}));
-    } catch (e) { } finally { setIsUpdating(false); }
+    } finally { setIsUpdating(false); }
   };
-
   const handleSaveSettings = async () => {
     setIsUpdating(true);
-    try { await updateRoomSettings(roomId, settings); alert('Settings Synced!'); } catch (e) {} finally { setIsUpdating(false); }
+    try { await updateRoomSettings(roomId, settings); } finally { setIsUpdating(false); }
   };
-
   const handleStartGame = async () => {
-    try {
-      await startGame(roomId);
-      socket.emit('request_next_round', { roomId });
-    } catch (error) { alert(error.response?.data?.message || 'Failed to start game'); }
+    try { await startGame(roomId); socket.emit('request_next_round', { roomId }); } catch (error) { alert('Failed to start'); }
   };
-
-  const handleRestartGame = () => {
-    socket.emit('restart_game', { roomId });
-  };
-
   const submitGuess = (e) => {
     e.preventDefault();
-    const currentGuess = guessInput.trim();
-    if (!currentGuess || hasGuessed || roundState !== 'ACTIVE') return;
-    socket.emit('submit_guess', { roomId, guess: currentGuess });
+    if (!guessInput.trim() || hasGuessed || roundState !== 'ACTIVE') return;
+    socket.emit('submit_guess', { roomId, guess: guessInput.trim() });
     setGuessInput(''); 
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-4 md:p-6 overflow-hidden flex flex-col">
-      
-      {/* TOP HEADER */}
-      <div className="max-w-[1600px] w-full mx-auto flex justify-between items-center bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-lg mb-6 flex-shrink-0">
-         <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-6">
-            <h1 className="text-2xl font-bold text-white">Trivia Room</h1>
-            {roomDetails?.inviteCode && (
-               <div className="flex items-center bg-gray-900 px-3 py-1.5 rounded-lg border border-gray-600">
-                  <span className="text-sm text-gray-400 mr-2">Code:</span>
-                  <span className="font-mono text-lg font-bold text-blue-400 tracking-widest">{roomDetails.inviteCode}</span>
-                  <button onClick={copyToClipboard} className="ml-4 text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded transition">
-                     {copied ? 'Copied!' : 'Copy'}
-                  </button>
-               </div>
-            )}
-         </div>
-         <button 
-           onClick={() => setIsLeftPaneOpen(!isLeftPaneOpen)} 
-           className="bg-blue-600 hover:bg-blue-700 font-medium text-sm px-4 py-2 rounded-lg transition-colors shadow-md"
-         >
-            {isLeftPaneOpen ? 'Hide Settings ◀' : 'Show Settings ▶'}
-         </button>
+    <div className="min-h-screen bg-[#E0F2FE] text-[#1E293B] p-3 md:p-5 flex flex-col font-sans selection:bg-[#FDE047] overflow-hidden relative">
+      {/* Background Dots */}
+      <div className="absolute inset-0 opacity-20 pointer-events-none z-0" style={{ backgroundImage: 'radial-gradient(#1E293B 1px, transparent 0)', backgroundSize: '24px 24px' }}></div>
+
+      {/* HEADER */}
+      <div className="max-w-[1400px] w-full mx-auto flex justify-between items-center bg-white border-[2.5px] border-[#1E293B] p-3 rounded-2xl shadow-[4px_4px_0px_#1E293B] mb-5 relative z-20">
+        <div className="flex items-center gap-4">
+          <div className="bg-[#FDE047] border-[2.5px] border-[#1E293B] px-3 py-1 rounded-lg -rotate-1 shadow-[2px_2px_0px_#1E293B]">
+            <h1 className="text-xl font-black italic tracking-tighter text-[#1E293B] uppercase leading-none">BhejaFry</h1>
+          </div>
+          {roomDetails?.inviteCode && (
+            <div className="hidden sm:flex items-center gap-2 bg-[#F1F5F9] px-3 py-1.5 rounded-xl border-[1.5px] border-[#1E293B]">
+              <span className="text-[10px] font-black uppercase text-slate-500">CODE:</span>
+              <span className="font-mono text-sm font-bold text-[#2563EB] tracking-widest">{roomDetails.inviteCode}</span>
+              <button onClick={copyToClipboard} className="text-[10px] font-black bg-white border border-[#1E293B] px-2 py-0.5 rounded shadow-[1px_1px_0px_#1E293B]">
+                {copied ? '✅' : 'COPY'}
+              </button>
+            </div>
+          )}
+        </div>
+        <button onClick={() => setIsLeftPaneOpen(!isLeftPaneOpen)} className="bg-white border-[2px] border-[#1E293B] px-4 py-1.5 rounded-xl text-[10px] font-black uppercase shadow-[3px_3px_0px_#1E293B] hover:translate-y-0.5 active:shadow-none transition-all">
+          {isLeftPaneOpen ? 'Close Menu' : 'Open Menu'}
+        </button>
       </div>
 
-      <div className={`max-w-[1600px] w-full mx-auto grid grid-cols-1 ${isLeftPaneOpen ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-6 flex-grow overflow-hidden`}>
+      <div className={`max-w-[1400px] w-full mx-auto grid grid-cols-1 ${isLeftPaneOpen ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-5 flex-grow overflow-hidden relative z-10`}>
         
-        {/* LEFT SECTION: Settings */}
+        {/* PANEL 1: CONFIG */}
         {isLeftPaneOpen && (
-          <div className="flex flex-col gap-6 overflow-y-auto pr-2 custom-scrollbar">
-            <div className="bg-gray-800 rounded-xl p-5 shadow-lg flex-grow">
-              <h3 className="text-xl font-semibold mb-4 border-b border-gray-700 pb-2">Configuration</h3>
+          <div className="flex flex-col gap-4 overflow-y-auto pr-1 custom-scrollbar">
+            <div className={`border-[2.5px] border-[#1E293B] rounded-3xl p-5 shadow-[6px_6px_0px_#1E293B] flex flex-col h-full overflow-hidden ${panelTexture}`}>
+              <h3 className="text-[10px] font-black uppercase text-[#1E293B]/60 mb-4 tracking-widest italic underline decoration-[#FDE047] decoration-2">Config Panel</h3>
               
-              <div className="mb-6">
-                <span className="block text-sm text-gray-400 mb-3">Selected Categories:</span>
-                <div className="flex flex-wrap gap-2">
-                  {roomDetails?.categories?.length > 0 ? (
-                    roomDetails.categories.map(c => (
-                      <div key={c.categoryId} className="flex items-center bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm shadow-sm">
-                        <span className="truncate max-w-[120px]">{c.category?.name || "Unknown"}</span>
+              <div className="space-y-5 flex-grow relative z-10">
+                <div>
+                  <span className="block text-[10px] font-black uppercase text-[#1E293B] mb-2">Topics:</span>
+                  <div className="flex flex-wrap gap-2">
+                    {roomDetails?.categories?.map(c => (
+                      <div key={c.categoryId} className="flex items-center bg-[#FDE047] border border-[#1E293B] text-[#1E293B] px-2.5 py-1 rounded-lg text-xs font-bold shadow-[2px_2px_0px_#1E293B]">
+                        {c.category?.name}
                         {isHost && roomDetails?.status !== 'PLAYING' && (
-                          <button onClick={() => handleRemoveCategory(c.categoryId)} disabled={isUpdating} className="ml-2 pl-2 border-l border-blue-500 hover:text-red-300 transition-colors">✕</button>
+                          <button onClick={() => handleRemoveCategory(c.categoryId)} className="ml-2 hover:text-red-500">✕</button>
                         )}
                       </div>
-                    ))
-                  ) : <span className="text-gray-500 italic text-sm">No categories selected.</span>}
-                </div>
-              </div>
-
-              {isHost && roomDetails?.status !== 'PLAYING' && (
-                <div className="pt-4 border-t border-gray-700 relative">
-                  <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} disabled={isUpdating || unselectedCategories.length === 0} className="w-full bg-gray-700 hover:bg-gray-600 px-4 py-2.5 rounded-lg flex items-center justify-between text-sm mb-4">
-                    {unselectedCategories.length === 0 ? "All categories added" : "+ Add Category"}
-                    <span className="ml-2 text-xs">{isDropdownOpen ? '▲' : '▼'}</span>
-                  </button>
-
-                  {isDropdownOpen && unselectedCategories.length > 0 && (
-                    <div className="absolute z-20 mt-2 w-full bg-gray-700 border border-gray-600 rounded-lg shadow-xl overflow-hidden">
-                      <ul className="max-h-48 overflow-y-auto custom-scrollbar">
-                        {unselectedCategories.map(cat => (
-                          <li key={cat.id}>
-                            <button onClick={() => handleAddCategory(cat.id)} className="w-full text-left px-4 py-2 hover:bg-blue-600 text-sm border-b border-gray-600">{cat.name}</button>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  <div className="bg-gray-900/50 p-3 rounded-lg border border-gray-700 mt-2 space-y-3">
-                    <div className="flex justify-between items-center">
-                      <label className="text-sm text-gray-300">Points to Win:</label>
-                      <input type="number" value={settings.maxScore} onChange={(e) => setSettings({...settings, maxScore: parseInt(e.target.value) || 100})} className="w-16 bg-gray-700 rounded px-2 py-1 text-center text-sm outline-none" />
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <label className="text-sm text-gray-300">Time per Round:</label>
-                      <input type="number" value={settings.timePerRound} onChange={(e) => setSettings({...settings, timePerRound: parseInt(e.target.value) || 15})} className="w-16 bg-gray-700 rounded px-2 py-1 text-center text-sm outline-none" />
-                    </div>
-                    <button onClick={handleSaveSettings} disabled={isUpdating} className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2 rounded">Save & Sync Settings</button>
+                    ))}
                   </div>
                 </div>
-              )}
+
+                {isHost && roomDetails?.status !== 'PLAYING' && (
+                  <div className="space-y-3 pt-4 border-t-2 border-dashed border-[#1E293B]/20">
+                    <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className="w-full bg-white border-2 border-[#1E293B] px-3 py-2 rounded-xl flex items-center justify-between text-[10px] font-black uppercase shadow-[3px_3px_0px_#1E293B]">
+                      <span>Add Topic</span>
+                      <span>{isDropdownOpen ? '▲' : '▼'}</span>
+                    </button>
+                    {isDropdownOpen && (
+                      <div className="bg-white border-2 border-[#1E293B] rounded-xl overflow-hidden shadow-xl max-h-32 overflow-y-auto relative z-20">
+                        {unselectedCategories.map(cat => (
+                          <button key={cat.id} onClick={() => handleAddCategory(cat.id)} className="w-full text-left px-4 py-2 hover:bg-[#FDE047] border-b border-slate-100 font-bold text-xs uppercase italic">
+                            + {cat.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <div className="bg-[#1E293B]/5 p-4 rounded-2xl border-2 border-[#1E293B] space-y-4">
+                      <div className="flex justify-between items-center">
+                        <label className="text-[10px] font-black uppercase text-[#1E293B]/70 tracking-tighter">Target Pts</label>
+                        <input type="number" value={settings.maxScore} onChange={(e) => setSettings({...settings, maxScore: parseInt(e.target.value) || 0})} className="w-16 bg-white border-2 border-[#1E293B] rounded-lg text-center font-black text-sm py-1 shadow-[2px_2px_0px_#1E293B] outline-none" />
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <label className="text-[10px] font-black uppercase text-[#1E293B]/70 tracking-tighter">Round Time</label>
+                        <input type="number" value={settings.timePerRound} onChange={(e) => setSettings({...settings, timePerRound: parseInt(e.target.value) || 0})} className="w-16 bg-white border-2 border-[#1E293B] rounded-lg text-center font-black text-sm py-1 shadow-[2px_2px_0px_#1E293B] outline-none" />
+                      </div>
+                      <button onClick={handleSaveSettings} disabled={isUpdating} className="w-full bg-[#2563EB] text-white text-[11px] font-black py-3 rounded-xl uppercase shadow-[4px_4px_0px_#1E293B] active:translate-y-1 active:shadow-none transition-all">
+                        Sync System
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
 
-        {/* MIDDLE SECTION: Gameplay Area */}
-        <div className={`bg-gray-800 rounded-xl border border-gray-700 flex flex-col overflow-hidden shadow-xl h-full lg:col-span-2`}>
-          
+        {/* PANEL 2: GAME WINDOW */}
+        <div className={`lg:col-span-2 flex flex-col h-full border-[3px] border-[#1E293B] rounded-[2rem] overflow-hidden relative shadow-[10px_10px_0px_#1E293B] ${panelTexture}`}>
           {roomDetails?.status === 'WAITING' ? (
-            <div className="flex flex-col items-center justify-center flex-grow p-6">
-              <h2 className="text-3xl font-bold text-gray-600 mb-4">Lobby Setup</h2>
-              <p className="text-gray-500 italic mb-4">Waiting for the host to start the game...</p>
-              <div className="flex gap-4 justify-center text-sm text-gray-400 bg-gray-900/50 px-4 py-2 rounded-full border border-gray-700">
-                <span>🎯 To Win: {settings.maxScore} pts</span>
-                <span>⏱️ Time: {settings.timePerRound}s</span>
-              </div>
+            <div className="flex flex-col items-center justify-center flex-grow p-8 text-center relative z-10">
+              <div className="w-24 h-24 mb-6 border-[6px] border-[#F1F5F9] border-t-[#2563EB] rounded-full animate-spin shadow-[4px_4px_0px_#1E293B]" />
+              <h2 className="text-4xl font-black italic text-[#1E293B] mb-2 uppercase tracking-tighter">READY?</h2>
+              <p className="text-[#2563EB] font-black text-xs mb-8 uppercase tracking-[0.2em] animate-pulse">Waiting for host command...</p>
               {isHost && (
-                <button onClick={handleStartGame} disabled={!roomDetails?.categories?.length} className="mt-8 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white font-bold py-3 px-8 rounded-full shadow-lg">
-                  {!roomDetails?.categories?.length ? 'Add a category to start' : 'Start Game'}
+                <button onClick={handleStartGame} disabled={!roomDetails?.categories?.length} className="bg-[#22C55E] border-[4px] border-[#1E293B] text-white text-lg font-black py-5 px-14 rounded-full uppercase shadow-[6px_6px_0px_#1E293B] hover:translate-y-1 hover:shadow-none transition-all disabled:bg-slate-300">
+                  START GAME
                 </button>
               )}
             </div>
           ) : roundState === 'GAME_OVER' ? (
-            <div className="flex flex-col items-center justify-center flex-grow p-6 bg-gradient-to-b from-gray-800 to-gray-900 text-center">
-              <h1 className="text-6xl text-yellow-400 mb-6 animate-bounce">🏆</h1>
-              <h2 className="text-5xl font-extrabold text-white mb-4">{winnerInfo?.winnerName} Wins!</h2>
-              <p className="text-2xl text-blue-400 font-bold mb-10">Total Score: {winnerInfo?.finalScore}</p>
-              
-              {/* BUG FIX 2: Added Restart Game button for Host */}
-              {isHost ? (
-                <button 
-                  onClick={handleRestartGame} 
-                  className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-10 rounded-full shadow-lg transition-transform hover:scale-105 text-lg"
-                >
-                  Play Again
+            <div className="flex flex-col items-center justify-center flex-grow p-8 text-center bg-[#FDE047] relative z-10">
+              <h1 className="text-5xl mb-6 drop-shadow-[4px_4px_0px_#1E293B]">🏆</h1>
+              <h2 className="text-4xl font-black uppercase italic text-[#1E293B] tracking-tighter mb-2">{winnerInfo?.winnerName}</h2>
+              <p className="text-[#1E293B] font-black text-sm uppercase tracking-[0.4em] mb-12 italic underline underline-offset-8 decoration-4">BHEJA FRY CHAMPION</p>
+              {isHost && (
+                <button onClick={() => socket.emit('restart_game', { roomId })} className="bg-white border-[4px] border-[#1E293B] text-[#1E293B] text-lg font-black py-5 px-14 rounded-full uppercase shadow-[6px_6px_0px_#1E293B] transition-all active:translate-y-1">
+                  PLAY AGAIN
                 </button>
-              ) : (
-                <p className="text-gray-500 italic">Waiting for host to restart the game...</p>
               )}
             </div>
           ) : (
             <>
-              {/* Timer Bar */}
-              <div className="w-full bg-gray-900 h-1.5 relative">
-                <div className={`absolute top-0 left-0 h-full transition-all duration-1000 ease-linear ${timeLeft <= 3 ? 'bg-red-500' : 'bg-blue-500'}`} style={{ width: `${currentPrompt ? (timeLeft / currentPrompt.duration) * 100 : 0}%` }}></div>
+              <div className="w-full bg-[#1E293B]/10 h-6 relative border-b-[3px] border-[#1E293B]">
+                <div className={`absolute top-0 left-0 h-full transition-all duration-1000 ease-linear ${timeLeft <= 5 ? 'bg-[#EF4444]' : 'bg-[#2563EB]'}`} style={{ width: `${currentPrompt ? (timeLeft / currentPrompt.duration) * 100 : 0}%` }} />
               </div>
 
-              {/* Prompt Box */}
-              <div className="h-64 md:h-80 bg-gray-900/50 flex flex-col items-center justify-center p-6 relative border-b border-gray-700">
-                <div className="absolute top-4 right-4 bg-gray-800 px-3 py-1 rounded-lg text-xl font-bold font-mono text-gray-300 border border-gray-700">⏱️ {timeLeft}s</div>
+              <div className="flex-1 flex flex-col items-center justify-center p-6 relative z-10">
+                <div className="absolute top-6 right-8 bg-[#FDE047] border-[3px] border-[#1E293B] px-6 py-2 rounded-2xl font-black text-3xl italic shadow-[4px_4px_0px_#1E293B]">
+                  {timeLeft}s
+                </div>
 
-                {roundState === 'IDLE' && <p className="text-xl text-gray-500 animate-pulse">Loading next round...</p>}
-                
-                {roundState === 'ACTIVE' && currentPrompt && (
-                  <div className="w-full h-full flex flex-col items-center justify-center max-w-lg mx-auto text-center">
-                    {currentPrompt.type === 'IMAGE' && <img src={currentPrompt.mediaUrl} alt="Trivia Prompt" className="max-h-full max-w-full rounded-lg shadow-md object-contain" />}
-                    {currentPrompt.type === 'QUOTE' && <blockquote className="text-2xl md:text-3xl italic font-serif text-gray-300">"{currentPrompt.textContent}"</blockquote>}
-                    {currentPrompt.type === 'TEXT' && <p className="text-2xl md:text-3xl font-bold text-blue-300">{currentPrompt.textContent}</p>}
-                  </div>
-                )}
-
-                {roundState === 'ENDED' && (
-                  <div className="w-full h-full flex flex-col items-center justify-center text-center animate-fadeIn">
-                    <h2 className="text-3xl font-bold text-red-400 mb-4">Round Over!</h2>
-                    <p className="text-gray-400 mb-2">The correct answer was:</p>
-                    <div className="flex flex-wrap justify-center gap-2 mb-4">
-                      {revealedAnswers.map((ans, idx) => <span key={idx} className="bg-green-600 text-white px-4 py-2 rounded-lg font-bold shadow-lg text-lg">{ans}</span>)}
+                <div className="max-w-lg w-full flex flex-col items-center justify-center gap-8 text-center">
+                  {roundState === 'ACTIVE' && currentPrompt && (
+                    <div className="animate-fadeIn">
+                      {currentPrompt.type === 'IMAGE' && <img src={currentPrompt.mediaUrl} alt="Trivia" className="max-h-[280px] rounded-[2rem] border-[6px] border-[#1E293B] shadow-[10px_10px_0px_#1E293B] object-contain" />}
+                      {currentPrompt.type === 'QUOTE' && <p className="text-3xl md:text-4xl font-black italic text-[#1E293B] leading-tight px-4">"{currentPrompt.textContent}"</p>}
+                      {currentPrompt.type === 'TEXT' && <p className="text-3xl md:text-4xl font-black text-[#2563EB] uppercase tracking-tighter leading-none italic">{currentPrompt.textContent}</p>}
                     </div>
-                    <p className="text-gray-500 text-sm animate-pulse">Next round starting soon...</p>
-                  </div>
-                )}
+                  )}
+                  {roundState === 'ENDED' && (
+                    <div className="animate-bounce-slow">
+                      <span className="text-xl font-black text-red-500 uppercase mb-6 block tracking-widest italic underline decoration-8">ROUND OVER!</span>
+                      <div className="flex flex-wrap justify-center gap-4">
+                        {revealedAnswers.map((ans, idx) => (
+                          <span key={idx} className="bg-[#22C55E] border-[4px] border-[#1E293B] text-white px-10 py-4 rounded-3xl font-black uppercase text-3xl shadow-[6px_6px_0px_#1E293B] italic tracking-tighter">{ans}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* Chat Log */}
-              <div className="flex-grow overflow-y-auto p-4 space-y-2 bg-gray-800 custom-scrollbar h-48">
+              <div className="h-40 overflow-y-auto px-8 py-4 space-y-3 bg-white/40 backdrop-blur-md border-t-[3px] border-[#1E293B] custom-scrollbar">
                 {chatLog.map((msg, index) => (
-                  <div key={index} className={`px-3 py-1.5 rounded-lg text-sm max-w-[85%] ${msg.system ? 'bg-green-900/30 text-green-400 border border-green-800/50 mx-auto text-center' : 'bg-gray-700/50 text-gray-200'}`}>
-                    {!msg.system && <span className="font-bold text-blue-400 mr-2">{msg.username}:</span>}
-                    <span>{msg.text}</span>
+                  <div key={index} className={`flex ${msg.system ? 'justify-center' : 'justify-start'}`}>
+                    <div className={`px-5 py-2 rounded-xl text-[10px] font-black border-2 border-[#1E293B] ${msg.system ? 'bg-[#FDE047] uppercase italic tracking-tighter' : 'bg-white shadow-[3px_3px_0px_#1E293B]'}`}>
+                      {!msg.system && <span className="text-[#2563EB] mr-2 underline decoration-[#FDE047]">{msg.username} &gt;</span>}
+                      {msg.text}
+                    </div>
                   </div>
                 ))}
                 <div ref={chatEndRef} />
               </div>
 
-              {/* Input Area */}
-              <form onSubmit={submitGuess} className="p-4 bg-gray-900 border-t border-gray-700 flex gap-3">
-                <input 
-                  ref={inputRef} // <-- ADD THIS LINE
-                  type="text" 
-                  value={guessInput} 
-                  onChange={(e) => setGuessInput(e.target.value)} 
-                  disabled={hasGuessed || roundState !== 'ACTIVE'}
-                  placeholder={hasGuessed ? "✅ You guessed correctly! Wait for next round..." : "Type your guess here..."}
-                  className="flex-grow bg-gray-800 border border-gray-600 text-white rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500 disabled:bg-gray-800/50 disabled:text-green-400 disabled:font-bold" 
-                  autoComplete="off"
-                />
-                <button type="submit" disabled={hasGuessed || roundState !== 'ACTIVE' || !guessInput.trim()} className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 text-white font-bold px-6 py-3 rounded-lg">Send</button>
+              <form onSubmit={submitGuess} className="p-6 bg-[#F1F5F9] border-t-[3px] border-[#1E293B] flex gap-4">
+                <input ref={inputRef} type="text" value={guessInput} onChange={(e) => setGuessInput(e.target.value)} disabled={hasGuessed || roundState !== 'ACTIVE'} placeholder={hasGuessed ? "NAILED IT! WAIT..." : "TYPE YOUR GUESS..."} className="flex-grow bg-white border-[3px] border-[#1E293B] text-[#1E293B] rounded-2xl px-6 py-4 focus:bg-[#FDE047] transition-all font-black uppercase text-lg tracking-widest shadow-inner outline-none" autoComplete="off" />
+                <button type="submit" disabled={hasGuessed || roundState !== 'ACTIVE'} className="bg-[#2563EB] border-[4px] border-[#1E293B] text-white font-black px-10 rounded-2xl uppercase shadow-[6px_6px_0px_#1E293B] active:translate-y-1 active:shadow-none transition-all disabled:opacity-50">SEND</button>
               </form>
             </>
           )}
         </div>
 
-        {/* RIGHT SECTION: Players */}
+        {/* PANEL 3: LEADERBOARD */}
         <div className="flex flex-col gap-4 h-full overflow-hidden">
-          <button onClick={handleLeave} className="w-full flex-shrink-0 bg-red-600/20 text-red-400 border border-red-600/30 hover:bg-red-600 hover:text-white py-3 rounded-xl font-bold transition-all duration-200">
-            Leave Room
-          </button>
+          <button onClick={handleLeave} className="bg-white border-[3px] border-[#EF4444] text-[#EF4444] py-5 rounded-2xl font-black uppercase tracking-[0.3em] text-xs shadow-[6px_6px_0px_#EF4444] active:translate-y-1 transition-all">EXIT ROOM</button>
 
-<div className="bg-gray-800 rounded-xl shadow-lg flex-grow flex flex-col overflow-hidden">
-            <div className="p-4 border-b border-gray-700 bg-gray-800/50 flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-gray-300">
-                Leaderboard <span className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full ml-2">{participants.length}</span>
-              </h3>
-              <span className="text-xs font-bold text-yellow-500 bg-yellow-500/20 px-2 py-1 rounded border border-yellow-500/30">
-                🎯 Target: {settings?.maxScore || 100}
-              </span>
+          <div className={`border-[3px] border-[#1E293B] rounded-[2rem] flex-grow flex flex-col overflow-hidden shadow-[8px_8px_0px_#1E293B] ${panelTexture}`}>
+            <div className="p-6 border-b-[3px] border-[#1E293B] bg-white/30 backdrop-blur-sm flex justify-between items-center">
+              <h3 className="text-sm font-black uppercase text-[#1E293B] italic tracking-tighter">Players</h3>
+              <span className="font-black text-[#2563EB] bg-[#FDE047] border-2 border-[#1E293B] px-4 py-1 rounded-full text-[10px] shadow-[2px_2px_0px_#1E293B]">GOAL: {settings?.maxScore}</span>
             </div>
             
-<ul className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+            <ul className="flex-1 overflow-y-auto p-6 space-y-5 custom-scrollbar relative z-10">
               {[...participants].sort((a, b) => b.score - a.score).map((p, index) => (
-                <li key={p.user.id} className={`flex items-center justify-between p-3 rounded-lg border transition-all ${p.justGuessed ? 'bg-green-900/40 border-green-500/80 shadow-[0_0_12px_rgba(34,197,94,0.3)]' : 'bg-gray-700/50 border-gray-600/50'}`}>
-                  <div className="flex items-center space-x-3 w-full">
-                    <div className="w-6 text-center font-bold text-gray-400 text-sm">#{index + 1}</div>
-                    <img src={p.user.avatarUrl || 'https://via.placeholder.com/40'} alt="avatar" className="w-10 h-10 rounded-full border-2 border-gray-600" />
-                    
-                    <div className="flex flex-col flex-grow overflow-hidden">
-                      {/* Name on Left, Points on Right */}
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-medium truncate flex items-center gap-1 text-gray-200">
-                          {p.user.username}
-                          {p.user.id === roomDetails?.hostUserId && <span title="Room Host" className="text-xs">👑</span>}
-                          {p.justGuessed && <span className="text-xs animate-bounce">✅</span>}
-                        </span>
-                        <span className="text-sm text-blue-400 font-bold whitespace-nowrap">{p.score} pts</span>
+                <li key={p.user.id} className={`p-4 rounded-2xl border-[3px] border-[#1E293B] transition-all duration-300 ${p.justGuessed ? 'bg-[#FDE047] -rotate-1 scale-105 shadow-[6px_6px_0px_#1E293B]' : 'bg-white/70 shadow-[4px_4px_0px_#1E293B]'}`}>
+                  <div className="flex items-center gap-4">
+                    <div className="font-black text-xl text-[#1E293B] w-8 italic tracking-tighter">0{index + 1}</div>
+                    <img src={p.user.avatarUrl || 'https://via.placeholder.com/40'} alt="avatar" className="w-12 h-12 rounded-xl border-2 border-[#1E293B] object-cover" />
+                    <div className="flex-grow min-w-0">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[11px] font-black uppercase text-[#1E293B] truncate tracking-tight">{p.user.username} {p.user.id === roomDetails?.hostUserId && '👑'}</span>
+                        <span className="text-2xl font-black text-[#2563EB] italic leading-none">{p.score}</span>
                       </div>
-                      
-                      {/* Timestamp underneath */}
-                      {p.justGuessed && p.timeTaken && (
-                        <span className="text-xs text-green-400 font-mono mt-0.5">
-                          {p.timeTaken}s
-                        </span>
-                      )}
+                      {p.justGuessed && <div className="text-[9px] font-black text-green-600 uppercase mt-1 animate-pulse tracking-tighter">+ CORRECT! {p.timeTaken && `(${p.timeTaken}s)`}</div>}
                     </div>
                   </div>
                 </li>
@@ -477,6 +364,15 @@ const onPlayerGuessedCorrectly = (data) => {
           </div>
         </div>
       </div>
+
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #1E293B; border-radius: 10px; border: 2px solid #E0F2FE; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fadeIn { animation: fadeIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        @keyframes bounceSlow { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+        .animate-bounce-slow { animation: bounceSlow 2.2s infinite ease-in-out; }
+      `}</style>
     </div>
   );
 }
