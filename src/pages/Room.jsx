@@ -34,6 +34,7 @@ export default function Room() {
   const [winnerInfo, setWinnerInfo] = useState(null);
   
   const chatEndRef = useRef(null);
+  const inputRef = useRef(null);
   const isHost = user?.id && roomDetails?.hostUserId && user.id === roomDetails.hostUserId;
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [chatLog]);
@@ -49,6 +50,16 @@ export default function Room() {
     return () => clearInterval(timer);
   }, [roundState, timeLeft]);
 
+  // Auto-focus input when a new round starts
+  useEffect(() => {
+    if (roundState === 'ACTIVE' && !hasGuessed) {
+      // A tiny delay ensures the DOM has updated and the input is no longer disabled
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 50);
+    }
+  }, [roundState, hasGuessed]);
+
   // ==========================================
   // SOCKET LISTENERS
   // ==========================================
@@ -56,13 +67,16 @@ export default function Room() {
     if (!socket || !roomId) return;
     socket.emit('join_game_room', { roomId });
 
-    const fetchFreshParticipants = async () => {
+const fetchFreshParticipants = async () => {
       try {
         const res = await getRoomParticipants(roomId);
         if (res.success) {
           setParticipants(prev => {
-            const guessedIds = new Set(prev.filter(p => p.justGuessed).map(p => p.user.id));
-            return res.data.map(newP => ({ ...newP, justGuessed: guessedIds.has(newP.user.id) }));
+            const localStateMap = new Map(prev.map(p => [p.user.id, { justGuessed: p.justGuessed, timeTaken: p.timeTaken }]));
+            return res.data.map(newP => {
+              const localState = localStateMap.get(newP.user.id) || {};
+              return { ...newP, ...localState };
+            });
           });
         }
       } catch (e) {}
@@ -70,7 +84,10 @@ export default function Room() {
 
     const onRoomSettingsUpdated = (data) => { if (data.settings) setSettings(data.settings); };
     const onRoomCategoriesUpdated = (data) => setRoomDetails(prev => ({...prev, categories: data.categories}));
-    const onGameStarted = (data) => setRoomDetails(prev => ({ ...prev, status: data.status }));
+    const onGameStarted = (data) => {
+      setRoomDetails(prev => ({ ...prev, status: data.status }));
+      if (data.settings) setSettings(data.settings); // <-- ADD THIS LINE
+    };
     
     const onRoundStarted = (data) => {
       setRoundState('ACTIVE');
@@ -78,7 +95,7 @@ export default function Room() {
       setTimeLeft(data.duration);
       setHasGuessed(false);
       setRevealedAnswers([]);
-      setParticipants(prev => prev.map(p => ({ ...p, justGuessed: false })));
+      setParticipants(prev => prev.map(p => ({ ...p, justGuessed: false, timeTaken: null })));
     };
 
     const onRoundEnded = (data) => {
@@ -89,7 +106,10 @@ export default function Room() {
 
 const onPlayerGuessedCorrectly = (data) => {
       setParticipants(prev => prev.map(p => 
-        p.user.id === data.userId ? { ...p, score: data.newTotalScore, justGuessed: true } : p
+        p.user.id === data.userId 
+          // STORE the timeTaken here
+          ? { ...p, score: data.newTotalScore, justGuessed: true, timeTaken: data.timeTaken } 
+          : p
       ));
       // UPDATE: Now displays the exact time taken!
       setChatLog(log => [...log, { system: true, text: `✅ ${data.username} guessed correctly in ${data.timeTaken}s! (+${data.pointsEarned} pts)` }]);
@@ -124,7 +144,7 @@ const onPlayerGuessedCorrectly = (data) => {
       setRoomDetails(prev => ({ ...prev, status: 'WAITING' }));
       setChatLog([]);
       setWinnerInfo(null);
-      setParticipants(prev => prev.map(p => ({ ...p, score: 0, justGuessed: false })));
+      setParticipants(prev => prev.map(p => ({ ...p, score: 0, justGuessed: false, timeTaken: null })));
     };
 
     socket.on('room_settings_updated', onRoomSettingsUpdated);
@@ -393,9 +413,14 @@ const onPlayerGuessedCorrectly = (data) => {
               {/* Input Area */}
               <form onSubmit={submitGuess} className="p-4 bg-gray-900 border-t border-gray-700 flex gap-3">
                 <input 
-                  type="text" value={guessInput} onChange={(e) => setGuessInput(e.target.value)} disabled={hasGuessed || roundState !== 'ACTIVE'}
+                  ref={inputRef} // <-- ADD THIS LINE
+                  type="text" 
+                  value={guessInput} 
+                  onChange={(e) => setGuessInput(e.target.value)} 
+                  disabled={hasGuessed || roundState !== 'ACTIVE'}
                   placeholder={hasGuessed ? "✅ You guessed correctly! Wait for next round..." : "Type your guess here..."}
-                  className="flex-grow bg-gray-800 border border-gray-600 text-white rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500 disabled:bg-gray-800/50 disabled:text-green-400 disabled:font-bold" autoComplete="off"
+                  className="flex-grow bg-gray-800 border border-gray-600 text-white rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500 disabled:bg-gray-800/50 disabled:text-green-400 disabled:font-bold" 
+                  autoComplete="off"
                 />
                 <button type="submit" disabled={hasGuessed || roundState !== 'ACTIVE' || !guessInput.trim()} className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 text-white font-bold px-6 py-3 rounded-lg">Send</button>
               </form>
@@ -415,23 +440,34 @@ const onPlayerGuessedCorrectly = (data) => {
                 Leaderboard <span className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full ml-2">{participants.length}</span>
               </h3>
               <span className="text-xs font-bold text-yellow-500 bg-yellow-500/20 px-2 py-1 rounded border border-yellow-500/30">
-                🎯 Target: {settings.maxScore}
+                🎯 Target: {settings?.maxScore || 100}
               </span>
             </div>
             
-            <ul className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+<ul className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
               {[...participants].sort((a, b) => b.score - a.score).map((p, index) => (
                 <li key={p.user.id} className={`flex items-center justify-between p-3 rounded-lg border transition-all ${p.justGuessed ? 'bg-green-900/40 border-green-500/80 shadow-[0_0_12px_rgba(34,197,94,0.3)]' : 'bg-gray-700/50 border-gray-600/50'}`}>
                   <div className="flex items-center space-x-3 w-full">
                     <div className="w-6 text-center font-bold text-gray-400 text-sm">#{index + 1}</div>
                     <img src={p.user.avatarUrl || 'https://via.placeholder.com/40'} alt="avatar" className="w-10 h-10 rounded-full border-2 border-gray-600" />
+                    
                     <div className="flex flex-col flex-grow overflow-hidden">
-                      <span className="font-medium truncate flex items-center gap-2">
-                        {p.user.username}
-                        {p.user.id === roomDetails?.hostUserId && <span title="Room Host" className="text-xs">👑</span>}
-                        {p.justGuessed && <span className="text-xs animate-bounce">✅</span>}
-                      </span>
-                      <span className="text-sm text-blue-400 font-bold">{p.score} pts</span>
+                      {/* Name on Left, Points on Right */}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium truncate flex items-center gap-1 text-gray-200">
+                          {p.user.username}
+                          {p.user.id === roomDetails?.hostUserId && <span title="Room Host" className="text-xs">👑</span>}
+                          {p.justGuessed && <span className="text-xs animate-bounce">✅</span>}
+                        </span>
+                        <span className="text-sm text-blue-400 font-bold whitespace-nowrap">{p.score} pts</span>
+                      </div>
+                      
+                      {/* Timestamp underneath */}
+                      {p.justGuessed && p.timeTaken && (
+                        <span className="text-xs text-green-400 font-mono mt-0.5">
+                          {p.timeTaken}s
+                        </span>
+                      )}
                     </div>
                   </div>
                 </li>
