@@ -96,6 +96,34 @@ export default function Room() {
       setGuessInput('');
       setParticipants(prev => prev.map(p => ({ ...p, justGuessed: false, timeTaken: null })));
     });
+    // Add this right below your socket.on('round_started', ...) listener
+
+    socket.on('sync_active_round', (data) => {
+      setRoundState('ACTIVE');
+      setCurrentPrompt({
+        id: data.id,
+        type: data.type,
+        mediaUrl: data.mediaUrl,
+        textContent: data.textContent,
+        duration: data.duration //
+      });
+      setTimeLeft(data.timeLeft);
+      setHasGuessed(data.hasGuessed);
+      setRevealedAnswers([]);
+      
+      // If they had already guessed correctly before refreshing, 
+      // let's restore their "Correct!" UI state so they don't get confused
+      if (data.correctGuessers && data.correctGuessers.length > 0) {
+        setParticipants(prev => prev.map(p => 
+          data.correctGuessers.includes(p.user.id) ? { ...p, justGuessed: true } : p
+        ));
+      }
+    });
+    socket.on('sync_round_ended', (data) => {
+      setRoundState('ENDED');
+      setTimeLeft(0);
+      setRevealedAnswers(data.correctAnswers);
+    });
     socket.on('round_ended', (data) => {
       setRoundState('ENDED');
       setTimeLeft(0);
@@ -133,10 +161,15 @@ export default function Room() {
 
   useEffect(() => {
     getCategories().then(res => { if (res.success) setAllCategories(res.data); });
-    getRoomDetails(roomId).then(res => {
+getRoomDetails(roomId).then(res => {
       if (res.success) {
         setRoomDetails(res.data);
         if (res.data.settingsJson) setSettings(res.data.settingsJson);
+        
+        // FIX: If they refresh after the game ends, jump straight to the winner screen
+        if (res.data.status === 'FINISHED') {
+          setRoundState('GAME_OVER');
+        }
       }
     }).catch(() => navigate('/'));
     getRoomParticipants(roomId).then(res => { if (res.success) setParticipants(res.data); });
@@ -299,7 +332,8 @@ export default function Room() {
           ) : roundState === 'GAME_OVER' ? (
             <div className="flex flex-col items-center justify-center flex-grow p-8 text-center bg-[#FDE047] relative z-10">
               <h1 className="text-5xl mb-6 drop-shadow-[4px_4px_0px_#1E293B]">🏆</h1>
-              <h2 className="text-4xl font-black uppercase italic text-[#1E293B] tracking-tighter mb-2">{winnerInfo?.winnerName}</h2>
+              <h2 className="text-4xl font-black uppercase italic text-[#1E293B] tracking-tighter mb-2">
+                {winnerInfo?.winnerName || [...participants].sort((a, b) => b.score - a.score)[0]?.user?.username}</h2>
               <p className="text-[#1E293B] font-black text-sm uppercase tracking-[0.4em] mb-12 italic underline underline-offset-8 decoration-4">BHEJA FRY CHAMPION</p>
               {isHost && (
                 <button onClick={() => socket.emit('restart_game', { roomId })} className="bg-white border-[4px] border-[#1E293B] text-[#1E293B] text-lg font-black py-5 px-14 rounded-full uppercase shadow-[6px_6px_0px_#1E293B] transition-all active:translate-y-1">

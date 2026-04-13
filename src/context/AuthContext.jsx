@@ -4,13 +4,13 @@ import { loginWithGoogle } from '../api/services';
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  // 1. Initialize user from localStorage [cite: 339]
+  const [user, setUser] = useState(() => {
+    const savedUser = localStorage.getItem('user');
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
+  
   const [token, setToken] = useState(localStorage.getItem('token') || null);
-
-  useEffect(() => {
-    // In a real app, you might want to decode the JWT here to restore user state on refresh
-    // or call the /api/me endpoint you set up in server.js
-  }, [token]);
 
   const login = async (googleIdToken) => {
     try {
@@ -18,7 +18,10 @@ export const AuthProvider = ({ children }) => {
       if (data.success) {
         setToken(data.data.token);
         setUser(data.data.user);
+        
+        // 2. Save both token and user object [cite: 342]
         localStorage.setItem('token', data.data.token);
+        localStorage.setItem('user', JSON.stringify(data.data.user)); 
       }
     } catch (error) {
       console.error("Login failed", error);
@@ -29,6 +32,7 @@ export const AuthProvider = ({ children }) => {
     setToken(null);
     setUser(null);
     localStorage.removeItem('token');
+    localStorage.removeItem('user'); // 3. Clear user on logout [cite: 344]
   };
 
   return (
