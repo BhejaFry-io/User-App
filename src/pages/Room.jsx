@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useContext, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
@@ -36,12 +35,28 @@ export default function Room() {
   
   const chatEndRef = useRef(null);
   const inputRef = useRef(null);
-  const isHost = user?.id && roomDetails?.hostUserId && user.id === roomDetails.hostUserId;
 
+  // --- SOUND EFFECTS ---
+  const correctSound = useRef(new Audio('/correct.mp3'));
+  const wrongSound = useRef(new Audio('/wrong.mp3'));
+  const wrongSoundTimer = useRef(null); // Used to delay and cancel the wrong sound
+
+  useEffect(() => {
+    correctSound.current.type = 'audio/mpeg';
+    wrongSound.current.type = 'audio/mpeg';
+    correctSound.current.load();
+    wrongSound.current.load();
+
+    // Cleanup timer if component unmounts
+    return () => {
+      if (wrongSoundTimer.current) clearTimeout(wrongSoundTimer.current);
+    };
+  }, []);
+
+  const isHost = user?.id && roomDetails?.hostUserId && user.id === roomDetails.hostUserId;
   const currentCategoryIds = roomDetails?.categories?.map(c => c.categoryId) || [];
   const unselectedCategories = allCategories.filter(cat => !currentCategoryIds.includes(cat.id));
 
-  // NEW NEUBRUTALIST TEXTURE: Blue-tinted gradient with a grid overlay
   const panelTexture = "bg-gradient-to-br from-[#F8FAFC] to-[#D1EAFF] relative before:absolute before:inset-0 before:bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] before:opacity-[0.03] before:pointer-events-none";
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [chatLog]);
@@ -140,7 +155,30 @@ export default function Room() {
       setRoomDetails(prev => ({ ...prev, hostUserId: data.newHostId }));
       setChatLog(log => [...log, { system: true, text: `👑 NEW HOST ASSIGNED!` }]);
     });
-    socket.on('guess_result', (data) => { if (data.success) { setHasGuessed(true); setGuessInput(''); } });
+
+    // --- REFINED SOUND LOGIC ---
+    socket.on('guess_result', (data) => {
+      if (data.success) {
+        // 1. CLEAR the wrong sound timer before it can play
+        if (wrongSoundTimer.current) {
+          clearTimeout(wrongSoundTimer.current);
+        }
+        
+        // 2. Just in case it already started (due to high network lag), pause it
+        if (wrongSound.current) {
+          wrongSound.current.pause();
+          wrongSound.current.currentTime = 0;
+        }
+
+        // 3. Play the correct sound
+        if (correctSound.current) {
+          correctSound.current.currentTime = 0;
+          correctSound.current.play().catch(() => {});
+        }
+        setHasGuessed(true); 
+      }
+    });
+
     socket.on('chat_message', (data) => { setChatLog(log => [...log, { userId: data.userId, username: data.username, text: data.text }]); });
     socket.on('game_over', (data) => {
       setRoundState('GAME_OVER');
@@ -177,16 +215,20 @@ getRoomDetails(roomId).then(res => {
 
   const handleLeave = async () => { try { await leaveRoom(roomId); navigate('/'); } catch (e) {} };
   const copyToClipboard = () => {
-    navigator.clipboard.writeText(roomDetails.inviteCode);
+    navigator.clipboard.writeText(roomDetails?.inviteCode || '');
     setCopied(true); setTimeout(() => setCopied(false), 2000);
   };
+
   const handleAddCategory = async (id) => {
+    if (currentCategoryIds.includes(id)) return;
     setIsUpdating(true);
     try { 
       const res = await updateRoomCategories(roomId, [...currentCategoryIds, id]); 
       if (res.success) setRoomDetails(prev => ({...prev, categories: res.data.categories}));
-    } finally { setIsUpdating(false); setIsDropdownOpen(false); }
+    } catch (err) { console.error(err); } 
+    finally { setIsUpdating(false); setIsDropdownOpen(false); }
   };
+
   const handleRemoveCategory = async (id) => {
     setIsUpdating(true);
     try { 
@@ -195,36 +237,47 @@ getRoomDetails(roomId).then(res => {
     } finally { setIsUpdating(false); }
   };
 
-  // ADD THIS NEW FUNCTION TO SELECT ALL CATEGORY 
   const handleAddAllCategories = async () => {
     setIsUpdating(true);
     try { 
       const allCategoryIds = allCategories.map(cat => cat.id);
       const res = await updateRoomCategories(roomId, allCategoryIds);
       if (res.success) setRoomDetails(prev => ({...prev, categories: res.data.categories}));
-    } finally { 
-      setIsUpdating(false); 
-      setIsDropdownOpen(false); 
-    }
+    } finally { setIsUpdating(false); setIsDropdownOpen(false); }
   };
 
   const handleSaveSettings = async () => {
     setIsUpdating(true);
     try { await updateRoomSettings(roomId, settings); } finally { setIsUpdating(false); }
   };
+
   const handleStartGame = async () => {
     try { await startGame(roomId); socket.emit('request_next_round', { roomId }); } catch (error) { alert('Failed to start'); }
   };
+
   const submitGuess = (e) => {
     e.preventDefault();
     if (!guessInput.trim() || hasGuessed || roundState !== 'ACTIVE') return;
+
     socket.emit('submit_guess', { roomId, guess: guessInput.trim() });
     setGuessInput(''); 
+
+    // Clear any existing timer just in case
+    if (wrongSoundTimer.current) clearTimeout(wrongSoundTimer.current);
+
+    // Schedule the wrong sound to play in 250ms.
+    // If the server confirms a CORRECT guess within this 250ms window, 
+    // the socket listener above will cancel this timer!
+    wrongSoundTimer.current = setTimeout(() => {
+      if (wrongSound.current && !hasGuessed) {
+        wrongSound.current.currentTime = 0;
+        wrongSound.current.play().catch(() => {});
+      }
+    }, 250); 
   };
 
   return (
     <div className="min-h-screen bg-[#E0F2FE] text-[#1E293B] p-3 md:p-5 flex flex-col font-sans selection:bg-[#FDE047] overflow-hidden relative">
-      {/* Background Dots */}
       <div className="absolute inset-0 opacity-20 pointer-events-none z-0" style={{ backgroundImage: 'radial-gradient(#1E293B 1px, transparent 0)', backgroundSize: '24px 24px' }}></div>
 
       {/* HEADER */}
@@ -279,16 +332,11 @@ getRoomDetails(roomId).then(res => {
                     </button>
                     {isDropdownOpen && (
                       <div className="bg-white border-2 border-[#1E293B] rounded-xl overflow-hidden shadow-xl max-h-32 overflow-y-auto relative z-20">
-
                         {unselectedCategories.length > 1 && (
-                          <button 
-                            onClick={handleAddAllCategories} 
-                            className="w-full text-left px-4 py-2 hover:bg-[#FDE047] border-b-2 border-[#1E293B] font-black text-xs uppercase italic text-[#2563EB] bg-slate-50"
-                          >
+                          <button onClick={handleAddAllCategories} className="w-full text-left px-4 py-2 hover:bg-[#FDE047] border-b-2 border-[#1E293B] font-black text-xs uppercase italic text-[#2563EB] bg-slate-50">
                             ⚡ SELECT ALL CATEGORIES
                           </button>
                         )}
-
                         {unselectedCategories.map(cat => (
                           <button key={cat.id} onClick={() => handleAddCategory(cat.id)} className="w-full text-left px-4 py-2 hover:bg-[#FDE047] border-b border-slate-100 font-bold text-xs uppercase italic">
                             + {cat.name}
@@ -299,11 +347,11 @@ getRoomDetails(roomId).then(res => {
                     <div className="bg-[#1E293B]/5 p-4 rounded-2xl border-2 border-[#1E293B] space-y-4">
                       <div className="flex justify-between items-center">
                         <label className="text-[10px] font-black uppercase text-[#1E293B]/70 tracking-tighter">Target Pts</label>
-                        <input type="number" value={settings.maxScore} onChange={(e) => setSettings({...settings, maxScore: parseInt(e.target.value) || 0})} className="w-16 bg-white border-2 border-[#1E293B] rounded-lg text-center font-black text-sm py-1 shadow-[2px_2px_0px_#1E293B] outline-none" />
+                        <input type="number" value={settings?.maxScore ?? 100} onChange={(e) => setSettings({...settings, maxScore: parseInt(e.target.value) || 0})} className="w-16 bg-white border-2 border-[#1E293B] rounded-lg text-center font-black text-sm py-1 shadow-[2px_2px_0px_#1E293B] outline-none" />
                       </div>
                       <div className="flex justify-between items-center">
                         <label className="text-[10px] font-black uppercase text-[#1E293B]/70 tracking-tighter">Round Time</label>
-                        <input type="number" value={settings.timePerRound} onChange={(e) => setSettings({...settings, timePerRound: parseInt(e.target.value) || 0})} className="w-16 bg-white border-2 border-[#1E293B] rounded-lg text-center font-black text-sm py-1 shadow-[2px_2px_0px_#1E293B] outline-none" />
+                        <input type="number" value={settings?.timePerRound ?? 15} onChange={(e) => setSettings({...settings, timePerRound: parseInt(e.target.value) || 0})} className="w-16 bg-white border-2 border-[#1E293B] rounded-lg text-center font-black text-sm py-1 shadow-[2px_2px_0px_#1E293B] outline-none" />
                       </div>
                       <button onClick={handleSaveSettings} disabled={isUpdating} className="w-full bg-[#2563EB] text-white text-[11px] font-black py-3 rounded-xl uppercase shadow-[4px_4px_0px_#1E293B] active:translate-y-1 active:shadow-none transition-all">
                         Sync System
@@ -353,44 +401,18 @@ getRoomDetails(roomId).then(res => {
                 </div>
 
                 <div className="max-w-lg w-full flex flex-col items-center justify-center gap-8 text-center">
-
                   {roundState === 'ACTIVE' && currentPrompt && (
-  <div className="animate-fadeIn flex flex-col items-center gap-6">
-    
-    {/* 1. ALWAYS SHOW THE QUESTION TEXT IF IT EXISTS */}
-    {currentPrompt.textContent && (
-      <p className="text-2xl md:text-3xl font-black text-[#2563EB] uppercase tracking-tighter leading-none italic px-4">
-        {currentPrompt.textContent}
-      </p>
-    )}
-
-    {/* 2. SHOW THE IMAGE IF TYPE IS IMAGE */}
-    {currentPrompt.type === 'IMAGE' && currentPrompt.mediaUrl && (
-      <img 
-        src={currentPrompt.mediaUrl} 
-        alt="Trivia" 
-        className="max-h-[280px] rounded-[2rem] border-[6px] border-[#1E293B] shadow-[10px_10px_0px_#1E293B] object-contain" 
-      />
-    )}
-
-    {/* 3. SHOW AUDIO PLAYER IF TYPE IS MUSIC (If you added this category) */}
-    {currentPrompt.type === 'MUSIC' && currentPrompt.mediaUrl && (
-      <div className="bg-[#FDE047] p-4 rounded-2xl border-[4px] border-[#1E293B] shadow-[6px_6px_0px_#1E293B]">
-        <audio controls autoPlay src={currentPrompt.mediaUrl} className="outline-none">
-          Your browser does not support the audio element.
-        </audio>
-      </div>
-    )}
-
-    {/* 4. SHOW QUOTE STYLING ONLY IF NO MEDIA */}
-    {currentPrompt.type === 'QUOTE' && (
-      <p className="text-3xl md:text-4xl font-black italic text-[#1E293B] leading-tight px-4 mt-4">
-        "{currentPrompt.textContent}"
-      </p>
-    )}
-
-  </div>
-)}
+                    <div className="animate-fadeIn flex flex-col items-center gap-6">
+                      {currentPrompt.textContent && (
+                        <p className="text-2xl md:text-3xl font-black text-[#2563EB] uppercase tracking-tighter leading-none italic px-4">
+                          {currentPrompt.textContent}
+                        </p>
+                      )}
+                      {currentPrompt.type === 'IMAGE' && currentPrompt.mediaUrl && (
+                        <img src={currentPrompt.mediaUrl} alt="Trivia" className="max-h-[280px] rounded-[2rem] border-[6px] border-[#1E293B] shadow-[10px_10px_0px_#1E293B] object-contain" />
+                      )}
+                    </div>
+                  )}
                   {roundState === 'ENDED' && (
                     <div className="animate-bounce-slow">
                       <span className="text-xl font-black text-red-500 uppercase mb-6 block tracking-widest italic underline decoration-8">ROUND OVER!</span>
@@ -417,7 +439,16 @@ getRoomDetails(roomId).then(res => {
               </div>
 
               <form onSubmit={submitGuess} className="p-6 bg-[#F1F5F9] border-t-[3px] border-[#1E293B] flex gap-4">
-                <input ref={inputRef} type="text" value={guessInput} onChange={(e) => setGuessInput(e.target.value)} disabled={hasGuessed || roundState !== 'ACTIVE'} placeholder={hasGuessed ? "NAILED IT! WAIT..." : "TYPE YOUR GUESS..."} className="flex-grow bg-white border-[3px] border-[#1E293B] text-[#1E293B] rounded-2xl px-6 py-4 focus:bg-[#FDE047] transition-all font-black uppercase text-lg tracking-widest shadow-inner outline-none" autoComplete="off" />
+                <input 
+                  ref={inputRef} 
+                  type="text" 
+                  value={guessInput || ''} 
+                  onChange={(e) => setGuessInput(e.target.value)} 
+                  disabled={hasGuessed || roundState !== 'ACTIVE'} 
+                  placeholder={hasGuessed ? "NAILED IT! WAIT..." : "TYPE YOUR GUESS..."} 
+                  className="flex-grow bg-white border-[3px] border-[#1E293B] text-[#1E293B] rounded-2xl px-6 py-4 focus:bg-[#FDE047] transition-all font-black uppercase text-lg tracking-widest shadow-inner outline-none" 
+                  autoComplete="off" 
+                />
                 <button type="submit" disabled={hasGuessed || roundState !== 'ACTIVE'} className="bg-[#2563EB] border-[4px] border-[#1E293B] text-white font-black px-10 rounded-2xl uppercase shadow-[6px_6px_0px_#1E293B] active:translate-y-1 active:shadow-none transition-all disabled:opacity-50">SEND</button>
               </form>
             </>
@@ -427,13 +458,11 @@ getRoomDetails(roomId).then(res => {
         {/* PANEL 3: LEADERBOARD */}
         <div className="flex flex-col gap-4 h-full overflow-hidden">
           <button onClick={handleLeave} className="bg-white border-[3px] border-[#EF4444] text-[#EF4444] py-5 rounded-2xl font-black uppercase tracking-[0.3em] text-xs shadow-[6px_6px_0px_#EF4444] active:translate-y-1 transition-all">EXIT ROOM</button>
-
           <div className={`border-[3px] border-[#1E293B] rounded-[2rem] flex-grow flex flex-col overflow-hidden shadow-[8px_8px_0px_#1E293B] ${panelTexture}`}>
             <div className="p-6 border-b-[3px] border-[#1E293B] bg-white/30 backdrop-blur-sm flex justify-between items-center">
               <h3 className="text-sm font-black uppercase text-[#1E293B] italic tracking-tighter">Players</h3>
-              <span className="font-black text-[#2563EB] bg-[#FDE047] border-2 border-[#1E293B] px-4 py-1 rounded-full text-[10px] shadow-[2px_2px_0px_#1E293B]">GOAL: {settings?.maxScore}</span>
+              <span className="font-black text-[#2563EB] bg-[#FDE047] border-2 border-[#1E293B] px-4 py-1 rounded-full text-[10px] shadow-[2px_2px_0px_#1E293B]">GOAL: {settings?.maxScore ?? 0}</span>
             </div>
-            
             <ul className="flex-1 overflow-y-auto p-6 space-y-5 custom-scrollbar relative z-10">
               {[...participants].sort((a, b) => b.score - a.score).map((p, index) => (
                 <li key={p.user.id} className={`p-4 rounded-2xl border-[3px] border-[#1E293B] transition-all duration-300 ${p.justGuessed ? 'bg-[#FDE047] -rotate-1 scale-105 shadow-[6px_6px_0px_#1E293B]' : 'bg-white/70 shadow-[4px_4px_0px_#1E293B]'}`}>
