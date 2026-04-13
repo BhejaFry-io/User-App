@@ -160,6 +160,20 @@ export default function Room() {
       if (res.success) setRoomDetails(prev => ({...prev, categories: res.data.categories}));
     } finally { setIsUpdating(false); }
   };
+
+  // ADD THIS NEW FUNCTION TO SELECT ALL CATEGORY 
+  const handleAddAllCategories = async () => {
+    setIsUpdating(true);
+    try { 
+      const allCategoryIds = allCategories.map(cat => cat.id);
+      const res = await updateRoomCategories(roomId, allCategoryIds);
+      if (res.success) setRoomDetails(prev => ({...prev, categories: res.data.categories}));
+    } finally { 
+      setIsUpdating(false); 
+      setIsDropdownOpen(false); 
+    }
+  };
+
   const handleSaveSettings = async () => {
     setIsUpdating(true);
     try { await updateRoomSettings(roomId, settings); } finally { setIsUpdating(false); }
@@ -231,6 +245,16 @@ export default function Room() {
                     </button>
                     {isDropdownOpen && (
                       <div className="bg-white border-2 border-[#1E293B] rounded-xl overflow-hidden shadow-xl max-h-32 overflow-y-auto relative z-20">
+
+                        {unselectedCategories.length > 1 && (
+                          <button 
+                            onClick={handleAddAllCategories} 
+                            className="w-full text-left px-4 py-2 hover:bg-[#FDE047] border-b-2 border-[#1E293B] font-black text-xs uppercase italic text-[#2563EB] bg-slate-50"
+                          >
+                            ⚡ SELECT ALL CATEGORIES
+                          </button>
+                        )}
+
                         {unselectedCategories.map(cat => (
                           <button key={cat.id} onClick={() => handleAddCategory(cat.id)} className="w-full text-left px-4 py-2 hover:bg-[#FDE047] border-b border-slate-100 font-bold text-xs uppercase italic">
                             + {cat.name}
@@ -294,13 +318,44 @@ export default function Room() {
                 </div>
 
                 <div className="max-w-lg w-full flex flex-col items-center justify-center gap-8 text-center">
+
                   {roundState === 'ACTIVE' && currentPrompt && (
-                    <div className="animate-fadeIn">
-                      {currentPrompt.type === 'IMAGE' && <img src={currentPrompt.mediaUrl} alt="Trivia" className="max-h-[280px] rounded-[2rem] border-[6px] border-[#1E293B] shadow-[10px_10px_0px_#1E293B] object-contain" />}
-                      {currentPrompt.type === 'QUOTE' && <p className="text-3xl md:text-4xl font-black italic text-[#1E293B] leading-tight px-4">"{currentPrompt.textContent}"</p>}
-                      {currentPrompt.type === 'TEXT' && <p className="text-3xl md:text-4xl font-black text-[#2563EB] uppercase tracking-tighter leading-none italic">{currentPrompt.textContent}</p>}
-                    </div>
-                  )}
+  <div className="animate-fadeIn flex flex-col items-center gap-6">
+    
+    {/* 1. ALWAYS SHOW THE QUESTION TEXT IF IT EXISTS */}
+    {currentPrompt.textContent && (
+      <p className="text-2xl md:text-3xl font-black text-[#2563EB] uppercase tracking-tighter leading-none italic px-4">
+        {currentPrompt.textContent}
+      </p>
+    )}
+
+    {/* 2. SHOW THE IMAGE IF TYPE IS IMAGE */}
+    {currentPrompt.type === 'IMAGE' && currentPrompt.mediaUrl && (
+      <img 
+        src={currentPrompt.mediaUrl} 
+        alt="Trivia" 
+        className="max-h-[280px] rounded-[2rem] border-[6px] border-[#1E293B] shadow-[10px_10px_0px_#1E293B] object-contain" 
+      />
+    )}
+
+    {/* 3. SHOW AUDIO PLAYER IF TYPE IS MUSIC (If you added this category) */}
+    {currentPrompt.type === 'MUSIC' && currentPrompt.mediaUrl && (
+      <div className="bg-[#FDE047] p-4 rounded-2xl border-[4px] border-[#1E293B] shadow-[6px_6px_0px_#1E293B]">
+        <audio controls autoPlay src={currentPrompt.mediaUrl} className="outline-none">
+          Your browser does not support the audio element.
+        </audio>
+      </div>
+    )}
+
+    {/* 4. SHOW QUOTE STYLING ONLY IF NO MEDIA */}
+    {currentPrompt.type === 'QUOTE' && (
+      <p className="text-3xl md:text-4xl font-black italic text-[#1E293B] leading-tight px-4 mt-4">
+        "{currentPrompt.textContent}"
+      </p>
+    )}
+
+  </div>
+)}
                   {roundState === 'ENDED' && (
                     <div className="animate-bounce-slow">
                       <span className="text-xl font-black text-red-500 uppercase mb-6 block tracking-widest italic underline decoration-8">ROUND OVER!</span>
