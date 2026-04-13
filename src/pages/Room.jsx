@@ -93,6 +93,7 @@ export default function Room() {
       setTimeLeft(data.duration);
       setHasGuessed(false);
       setRevealedAnswers([]);
+      setGuessInput('');
       setParticipants(prev => prev.map(p => ({ ...p, justGuessed: false, timeTaken: null })));
     });
     socket.on('round_ended', (data) => {
