@@ -582,18 +582,30 @@ export default function Room() {
               <span className={`font-black border-[2px] ${bColor} shadow-[2px_2px_0px_${shadowColor}] px-3 py-0.5 rounded-full text-[9px] ${goalBadge}`}>GOAL: {settings?.maxScore ?? 0}</span>
             </div>
             
-            <ul className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar relative z-10">
+<ul className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
               {[...participants].sort((a, b) => b.score - a.score).map((p, index) => (
-                <li key={p.user.id} className={`p-3 rounded-xl border-[2px] ${bColor} shadow-[3px_3px_0px_${shadowColor}] transition-all duration-300 ${p.justGuessed ? '-rotate-1 scale-105 shadow-[4px_4px_0px_' + shadowColor + '] ' + playerItemActive : playerItemInactive}`}>
-                  <div className="flex items-center gap-3">
-                    <div className={`font-black text-lg w-6 italic tracking-tighter ${p.justGuessed ? playerRankActive : playerRankInactive}`}>0{index + 1}</div>
-                    <img src={p.user.avatarUrl || 'https://via.placeholder.com/40'} alt="avatar" className={`w-10 h-10 rounded-lg border-[2px] ${bColor} object-cover ${avatarBgPlayer}`} />
-                    <div className="flex-grow min-w-0">
-                      <div className="flex justify-between items-center">
-                        <span className="text-[10px] font-black uppercase truncate tracking-tight">{p.user.username} {p.user.id === roomDetails?.hostUserId && '👑'}</span>
-                        <span className={`text-xl font-black italic leading-none ${p.justGuessed ? playerScoreActive : playerScoreInactive}`}>{p.score}</span>
+                <li key={p.user.id} className={`flex items-center justify-between p-3 rounded-lg border transition-all ${p.justGuessed ? 'bg-green-900/40 border-green-500/80 shadow-[0_0_12px_rgba(34,197,94,0.3)]' : 'bg-gray-700/50 border-gray-600/50'}`}>
+                  <div className="flex items-center space-x-3 w-full">
+                    <div className="w-6 text-center font-bold text-gray-400 text-sm">#{index + 1}</div>
+                    <img src={p.user.avatarUrl || 'https://via.placeholder.com/40'} alt="avatar" className="w-10 h-10 rounded-full border-2 border-gray-600" />
+                    
+                    <div className="flex flex-col flex-grow overflow-hidden">
+                      {/* Name on Left, Points on Right */}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium truncate flex items-center gap-1 text-gray-200">
+                          {p.user.username}
+                          {p.user.id === roomDetails?.hostUserId && <span title="Room Host" className="text-xs">👑</span>}
+                          {/* Removed the bouncing checkmark from here */}
+                        </span>
+                        <span className="text-sm text-blue-400 font-bold whitespace-nowrap">{p.score} pts</span>
                       </div>
-                      {p.justGuessed && <div className={`text-[8px] font-black uppercase mt-1 border-[1px] ${bColor} animate-pulse tracking-tighter inline-block px-1.5 py-0.5 rounded ${correctBadge}`}>+ CORRECT! {p.timeTaken && `(${p.timeTaken}s)`}</div>}
+                      
+                      {/* Timestamp underneath: Increased size to text-sm, made bold, removed brackets */}
+                      {p.justGuessed && p.timeTaken && (
+                        <span className="text-sm font-bold text-green-400 font-mono mt-0.5">
+                           {p.timeTaken}s
+                        </span>
+                      )}
                     </div>
                   </div>
                 </li>
