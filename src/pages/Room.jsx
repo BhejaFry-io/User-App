@@ -136,7 +136,7 @@ export default function Room() {
   const avatarBgPlayer = isDarkMode ? "bg-slate-800" : "bg-white";
   const playerScoreActive = isDarkMode ? "text-black" : "text-[#2563EB]";
   const playerScoreInactive = isDarkMode ? "text-[#60a5fa]" : "text-[#2563EB]";
-  const correctBadge = isDarkMode ? "text-black bg-white/30" : "text-green-600 bg-white/50";
+  const correctBadge = isDarkMode ? "text-black bg-white/30 border-black" : "text-green-800 bg-white/50 border-[#1E293B]";
 
   // ==========================================
   // --- SOCKET EFFECTS ---
@@ -582,28 +582,43 @@ export default function Room() {
               <span className={`font-black border-[2px] ${bColor} shadow-[2px_2px_0px_${shadowColor}] px-3 py-0.5 rounded-full text-[9px] ${goalBadge}`}>GOAL: {settings?.maxScore ?? 0}</span>
             </div>
             
-<ul className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+            <ul className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
               {[...participants].sort((a, b) => b.score - a.score).map((p, index) => (
-                <li key={p.user.id} className={`flex items-center justify-between p-3 rounded-lg border transition-all ${p.justGuessed ? 'bg-green-900/40 border-green-500/80 shadow-[0_0_12px_rgba(34,197,94,0.3)]' : 'bg-gray-700/50 border-gray-600/50'}`}>
+                <li 
+                  key={p.user.id} 
+                  className={`flex items-center justify-between p-3 rounded-xl border-[2px] ${bColor} transition-all ${
+                    p.justGuessed 
+                      ? `${playerItemActive} shadow-[4px_4px_0px_${shadowColor}] -translate-y-0.5` 
+                      : `${playerItemInactive} shadow-[2px_2px_0px_${shadowColor}]`
+                  }`}
+                >
                   <div className="flex items-center space-x-3 w-full">
-                    <div className="w-6 text-center font-bold text-gray-400 text-sm">#{index + 1}</div>
-                    <img src={p.user.avatarUrl || 'https://via.placeholder.com/40'} alt="avatar" className="w-10 h-10 rounded-full border-2 border-gray-600" />
+                    <div className={`w-6 text-center font-black text-sm ${p.justGuessed ? playerRankActive : playerRankInactive}`}>
+                      #{index + 1}
+                    </div>
+                    
+                    <img 
+                      src={p.user.avatarUrl || 'https://via.placeholder.com/40'} 
+                      alt="avatar" 
+                      className={`w-10 h-10 rounded-full border-[2px] ${bColor} ${avatarBgPlayer}`} 
+                    />
                     
                     <div className="flex flex-col flex-grow overflow-hidden">
                       {/* Name on Left, Points on Right */}
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-medium truncate flex items-center gap-1 text-gray-200">
+                        <span className="font-black uppercase truncate flex items-center gap-1 tracking-tight">
                           {p.user.username}
                           {p.user.id === roomDetails?.hostUserId && <span title="Room Host" className="text-xs">👑</span>}
-                          {/* Removed the bouncing checkmark from here */}
                         </span>
-                        <span className="text-sm text-blue-400 font-bold whitespace-nowrap">{p.score} pts</span>
+                        <span className={`text-sm font-black whitespace-nowrap ${p.justGuessed ? playerScoreActive : playerScoreInactive}`}>
+                          {p.score} PTS
+                        </span>
                       </div>
                       
-                      {/* Timestamp underneath: Increased size to text-sm, made bold, removed brackets */}
+                      {/* Timestamp underneath: Bold, no brackets, sized correctly */}
                       {p.justGuessed && p.timeTaken && (
-                        <span className="text-sm font-bold text-green-400 font-mono mt-0.5">
-                           {p.timeTaken}s
+                        <span className={`text-sm font-black font-mono mt-0.5 px-2 py-0.5 rounded-md w-fit border-[2px] ${bColor} ${correctBadge}`}>
+                          {p.timeTaken}s
                         </span>
                       )}
                     </div>
