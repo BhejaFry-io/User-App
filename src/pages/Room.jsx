@@ -615,7 +615,7 @@ export default function Room() {
                         </span>
                       </div>
                       
-                      {/* Timestamp underneath: Bold, no brackets, sized correctly */}
+                      {/* Timestamp underneath: Bold, no brackets, sized correctly, Removed Correct*/}
                       {p.justGuessed && p.timeTaken && (
                         <span className={`text-sm font-black font-mono mt-0.5 px-2 py-0.5 rounded-md w-fit border-[2px] ${bColor} ${correctBadge}`}>
                           {p.timeTaken}s
