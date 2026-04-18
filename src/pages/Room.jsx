@@ -519,12 +519,6 @@ export default function Room() {
                           </audio>
                         </div>
                       )}
-
-                      {currentPrompt.type === 'QUOTE' && (
-                        <p className={`text-2xl md:text-3xl font-black italic leading-tight px-3 mt-2 ${promptQuote}`}>
-                          "{currentPrompt.textContent}"
-                        </p>
-                      )}
                     </div>
                   )}
 
