@@ -4,7 +4,7 @@ import {
   getRoomParticipants, getRoomDetails, leaveRoom, 
   updateRoomCategories, getCategories, updateRoomSettings, startGame
 } from '../api/services';
-import AdBanner from 'User-App/src/pages/AdBanner.jsx';
+import AdBanner from '../src/pages/AdBanner.jsx';
 import { SocketContext } from '../context/SocketContext';
 import { AuthContext } from '../context/AuthContext';
 import { ThemeContext } from '../context/ThemeContext'; 
