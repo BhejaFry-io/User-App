@@ -579,7 +579,7 @@ export default function Room() {
           <div className={`border-[3px] ${bColor} shadow-[6px_6px_0px_${shadowColor}] rounded-3xl flex-grow flex flex-col overflow-hidden ${panelTexture}`}>
             <div className={`p-4 border-b-[3px] ${bColor} backdrop-blur-sm flex justify-between items-center ${lbHeader}`}>
               <h3 className={`text-xs font-black uppercase italic tracking-tighter ${lbTitle}`}>Players</h3>
-              <span className={`font-black border-[2px] ${bColor} shadow-[2px_2px_0px_${shadowColor}] px-3 py-0.5 rounded-full text-[9px] ${goalBadge}`}>GOAL: {settings?.maxScore ?? 0}</span>
+              <span className={`font-black border-[2px] ${bColor} shadow-[2px_2px_0px_${shadowColor}] px-3 py-0.5 rounded-full text-[9px] ${goalBadge}`}>GOAL: {settings?.maxScore ?? 100}</span>
             </div>
             
             <ul className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
