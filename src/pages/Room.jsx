@@ -4,6 +4,7 @@ import {
   getRoomParticipants, getRoomDetails, leaveRoom, 
   updateRoomCategories, getCategories, updateRoomSettings, startGame
 } from '../api/services';
+import AdBanner from '../components/AdBanner';
 import { SocketContext } from '../context/SocketContext';
 import { AuthContext } from '../context/AuthContext';
 import { ThemeContext } from '../context/ThemeContext'; 
@@ -628,6 +629,11 @@ export default function Room() {
             </ul>
           </div>
         </div>
+      </div>
+
+      {/* AD BANNER AT THE VERY BOTTOM */}
+      <div className="w-full max-w-[1400px] mx-auto z-20 mt-4 shrink-0">
+        <AdBanner />
       </div>
 
       <style>{`
