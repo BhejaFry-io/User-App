@@ -11,7 +11,7 @@ export const SocketProvider = ({ children }) => {
   useEffect(() => {
     // Only connect if we have a valid JWT token
     if (token) {
-      const newSocket = io('https://api.bhejafry.fun/api', {
+      const newSocket = io('https://api.bhejafry.fun', {
         auth: {
           token: token // Pass the JWT to the backend middleware
         }
