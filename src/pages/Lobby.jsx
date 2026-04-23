@@ -7,8 +7,10 @@ import { ThemeContext } from '../context/ThemeContext'; // <-- Import Theme Cont
 
 export default function Lobby() {
   const [inviteCode, setInviteCode] = useState('');
+  const [guestName, setGuestName] = useState(''); // <-- NEW STATE
   const navigate = useNavigate();
-  const { user, login, logout } = useContext(AuthContext);
+  // Extract loginGuest from context
+  const { user, login, logout, loginGuest } = useContext(AuthContext);
   const { isDarkMode, toggleTheme } = useContext(ThemeContext);
 
   const handleCreateRoom = async () => {
@@ -32,6 +34,13 @@ export default function Lobby() {
     } catch (error) {
       alert("Invalid Invite Code or Room already started");
     }
+  };
+
+  // 🟢 NEW: Guest form handler
+  const handleGuestLogin = async (e) => {
+    e.preventDefault();
+    if (!guestName.trim()) return;
+    await loginGuest(guestName);
   };
 
   // --- THEME VARIABLES ---
@@ -96,11 +105,37 @@ export default function Lobby() {
       <div className={`border-[6px] p-8 md:p-10 rounded-[3rem] w-full max-w-lg z-10 relative transition-all duration-300 ${cardBg}`}>
         
         {!user ? (
-          <div className="flex flex-col items-center justify-center py-8">
+          <div className="flex flex-col items-center justify-center py-4 w-full">
             <h2 className={`text-3xl font-black mb-2 uppercase italic tracking-tighter ${headingText}`}>Ready to Play?</h2>
-            <p className={`font-bold text-sm mb-12 ${pText}`}>Login to start frying those brains</p>
-            
-            <div className="transform scale-[1.7] hover:scale-[1.8] transition-all duration-300 drop-shadow-[4px_4px_0px_#000]">
+            <p className={`font-bold text-sm mb-6 ${pText}`}>Choose how you want to join</p>
+
+            {/* 🟢 NEW: Guest Login Form */}
+            <form onSubmit={handleGuestLogin} className="w-full space-y-4 mb-6">
+              <input
+                type="text"
+                placeholder="ENTER GUEST NAME"
+                value={guestName}
+                onChange={(e) => setGuestName(e.target.value)}
+                className={`w-full px-6 py-4 text-center font-black text-xl rounded-2xl border-4 focus:outline-none focus:ring-4 transition-all uppercase tracking-widest placeholder:tracking-normal placeholder:text-sm shadow-inner ${inputBg}`}
+                maxLength={15}
+              />
+              <button
+                type="submit"
+                disabled={!guestName.trim()}
+                className={`w-full bg-[#facc15] hover:bg-[#fde047] text-black font-black text-xl py-4 rounded-2xl border-b-[8px] border-r-[4px] active:border-b-4 active:translate-y-1 transition-all shadow-lg uppercase tracking-tighter italic disabled:opacity-50 disabled:cursor-not-allowed ${actionBtnBorder}`}
+              >
+                Play as Guest
+              </button>
+            </form>
+
+            <div className="flex items-center w-full py-2 mb-6">
+              <div className={`flex-grow border-t-4 ${divider}`}></div>
+              <span className={`flex-shrink mx-4 text-xs font-black uppercase tracking-widest ${orText}`}>Or Save Stats</span>
+              <div className={`flex-grow border-t-4 ${divider}`}></div>
+            </div>
+
+            {/* Existing Google Login */}
+            <div className="transform scale-[1.3] hover:scale-[1.4] transition-all duration-300 drop-shadow-[4px_4px_0px_#000]">
               <GoogleLogin
                 onSuccess={(res) => login(res.credential)}
                 onError={() => console.log('Login Failed')}

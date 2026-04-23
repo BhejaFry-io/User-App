@@ -1,10 +1,10 @@
 import React, { createContext, useState, useEffect } from 'react';
-import { loginWithGoogle } from '../api/services';
+import { loginWithGoogle, loginGuestAPI } from '../api/services';
 
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  // 1. Initialize user from localStorage [cite: 339]
+  // 1. Initialize user from localStorage
   const [user, setUser] = useState(() => {
     const savedUser = localStorage.getItem('user');
     return savedUser ? JSON.parse(savedUser) : null;
@@ -19,7 +19,7 @@ export const AuthProvider = ({ children }) => {
         setToken(data.data.token);
         setUser(data.data.user);
         
-        // 2. Save both token and user object [cite: 342]
+        // 2. Save both token and user object
         localStorage.setItem('token', data.data.token);
         localStorage.setItem('user', JSON.stringify(data.data.user)); 
       }
@@ -28,15 +28,33 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // 🟢 Guest Login Context Function
+  const loginGuest = async (username) => {
+    try {
+      const data = await loginGuestAPI(username);
+      if (data.success) {
+        setToken(data.data.token);
+        setUser(data.data.user);
+        localStorage.setItem('token', data.data.token);
+        localStorage.setItem('user', JSON.stringify(data.data.user)); 
+        return { success: true };
+      }
+    } catch (error) {
+      console.error("Guest Login failed", error);
+      return { success: false };
+    }
+  };
+
+  // 3. Clear user and token on logout
   const logout = () => {
     setToken(null);
     setUser(null);
     localStorage.removeItem('token');
-    localStorage.removeItem('user'); // 3. Clear user on logout [cite: 344]
+    localStorage.removeItem('user'); 
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout }}>
+    <AuthContext.Provider value={{ user, token, login, logout, loginGuest }}>
       {children}
     </AuthContext.Provider>
   );

@@ -7,6 +7,12 @@ export const loginWithGoogle = async (idToken) => {
   return response.data;
 };
 
+// 🟢 NEW: POST /api/auth/guest
+export const loginGuestAPI = async (username) => {
+  const response = await apiClient.post('/auth/guest', { username });
+  return response.data;
+};
+
 // --- ROOMS ---
 // POST /api/rooms
 export const createRoom = async (roomData) => {
