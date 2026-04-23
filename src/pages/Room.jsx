@@ -408,7 +408,7 @@ export default function Room() {
   };
 
   return (
-    <div className={`h-[100dvh] w-full ${bgClass} p-3 md:p-4 flex flex-col font-sans overflow-hidden relative transition-colors duration-500`}>
+    <div className={`min-h-[100dvh] lg:h-[100dvh] w-full ${bgClass} p-3 md:p-4 flex flex-col font-sans overflow-x-hidden overflow-y-auto lg:overflow-hidden relative transition-colors duration-500`}>
       
       {showConfetti && <ConfettiBlast />}
 
@@ -419,7 +419,7 @@ export default function Room() {
       <div className={`max-w-[1400px] w-full mx-auto flex justify-between items-center border-[3px] ${bColor} p-2 md:p-3 rounded-xl mb-4 relative z-20 shrink-0 shadow-[4px_4px_0px_${shadowColor}] ${headerBg}`}>
         <div className="flex items-center gap-3 md:gap-4">
           <div className={`px-2 py-1 rounded-md -rotate-1 border-[2px] ${bColor} shadow-[2px_2px_0px_${shadowColor}] ${titleBadge}`}>
-            <h1 className="text-lg md:text-xl font-black italic tracking-tighter uppercase leading-none">BhejaFry</h1>
+            <h1 className="text-base sm:text-lg md:text-xl font-black italic tracking-tighter uppercase leading-none">BhejaFry</h1>
           </div>
           {roomDetails?.inviteCode && (
             <div className={`hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-lg border-[2px] ${bColor} ${codeBadge}`}>
@@ -445,15 +445,15 @@ export default function Room() {
         </div>
       </div>
 
-      <div className={`max-w-[1400px] w-full mx-auto grid grid-cols-1 ${isLeftPaneOpen ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-4 flex-1 min-h-0 relative z-10`}>
+      <div className={`max-w-[1400px] w-full mx-auto grid grid-cols-1 ${isLeftPaneOpen ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-4 sm:gap-6 lg:gap-4 flex-1 lg:min-h-0 relative z-10 pb-4 lg:pb-0`}>
         
-        {/* PANEL 1: CONFIG */}
+        {/* PANEL 1: CONFIG (Pushed to bottom on mobile, side on desktop) */}
         {isLeftPaneOpen && (
-          <div className="flex flex-col gap-4 overflow-y-auto pr-1 custom-scrollbar min-h-0">
+          <div className="flex flex-col gap-4 overflow-y-auto pr-1 custom-scrollbar order-3 lg:order-1 h-[50dvh] lg:h-full lg:min-h-0">
             <div className={`border-[3px] ${bColor} shadow-[6px_6px_0px_${shadowColor}] rounded-2xl p-4 flex flex-col h-full overflow-hidden ${panelTexture}`}>
               <h3 className={`text-[9px] font-black uppercase mb-3 tracking-widest italic underline decoration-2 ${configTitle}`}>Config Panel</h3>
               
-              <div className="space-y-4 flex-grow relative z-10">
+              <div className="space-y-4 flex-grow relative z-10 overflow-y-auto custom-scrollbar pr-2">
                 <div>
                   <span className={`block text-[9px] font-black uppercase mb-2 ${topicsLabel}`}>Topics:</span>
                   <div className="flex flex-wrap gap-1.5">
@@ -511,28 +511,28 @@ export default function Room() {
           </div>
         )}
 
-        {/* PANEL 2: GAME WINDOW */}
-        <div className={`lg:col-span-2 flex flex-col h-full border-[3px] ${bColor} shadow-[8px_8px_0px_${shadowColor}] rounded-3xl overflow-hidden relative min-h-0 ${panelTexture}`}>
+        {/* PANEL 2: GAME WINDOW (Always top priority on mobile) */}
+        <div className={`lg:col-span-2 flex flex-col border-[3px] ${bColor} shadow-[8px_8px_0px_${shadowColor}] rounded-3xl overflow-hidden relative order-1 lg:order-2 h-[80dvh] lg:h-full lg:min-h-0 ${panelTexture}`}>
           {roomDetails?.status === 'WAITING' ? (
             <div className="flex flex-col items-center justify-center flex-grow p-6 text-center relative z-10 min-h-0">
-              <div className={`w-20 h-20 mb-4 border-[5px] rounded-full animate-spin shrink-0 ${spinner}`} />
-              <h2 className={`text-3xl font-black italic mb-2 uppercase tracking-tighter shrink-0 ${readyText}`}>READY?</h2>
-              <p className={`font-black text-[10px] mb-6 uppercase tracking-[0.2em] animate-pulse shrink-0 ${waitingText}`}>Waiting for host command...</p>
+              <div className={`w-16 h-16 md:w-20 md:h-20 mb-4 border-[5px] rounded-full animate-spin shrink-0 ${spinner}`} />
+              <h2 className={`text-2xl md:text-3xl font-black italic mb-2 uppercase tracking-tighter shrink-0 ${readyText}`}>READY?</h2>
+              <p className={`font-black text-[9px] md:text-[10px] mb-6 uppercase tracking-[0.2em] animate-pulse shrink-0 ${waitingText}`}>Waiting for host command...</p>
               {isHost && (
-                <button onClick={handleStartGame} disabled={!roomDetails?.categories?.length} className={`border-[3px] ${bColor} shadow-[4px_4px_0px_${shadowColor}] hover:shadow-[1px_1px_0px_${shadowColor}] font-black py-4 px-10 rounded-full uppercase hover:translate-y-1 transition-all shrink-0 ${startBtn}`}>
+                <button onClick={handleStartGame} disabled={!roomDetails?.categories?.length} className={`border-[3px] ${bColor} shadow-[4px_4px_0px_${shadowColor}] hover:shadow-[1px_1px_0px_${shadowColor}] font-black py-3 px-8 md:py-4 md:px-10 rounded-full uppercase hover:translate-y-1 transition-all shrink-0 ${startBtn}`}>
                   START GAME
                 </button>
               )}
             </div>
           ) : roundState === 'GAME_OVER' ? (
             <div className={`flex flex-col items-center justify-center flex-grow p-6 text-center relative z-10 border-b-[3px] ${bColor} min-h-0 ${gameOverBg}`}>
-              <h1 className={`text-5xl mb-4 shrink-0 ${trophyShadow}`}>🏆</h1>
-              <h2 className={`text-3xl md:text-4xl font-black uppercase italic tracking-tighter mb-2 shrink-0 ${winnerText}`}>
+              <h1 className={`text-4xl md:text-5xl mb-4 shrink-0 ${trophyShadow}`}>🏆</h1>
+              <h2 className={`text-2xl md:text-4xl font-black uppercase italic tracking-tighter mb-2 shrink-0 ${winnerText}`}>
                 {winnerInfo?.winnerName || [...participants].sort((a, b) => b.score - a.score)[0]?.user?.username}
               </h2>
-              <p className="font-black text-xs uppercase tracking-[0.4em] mb-8 italic underline underline-offset-8 decoration-4 shrink-0">BHEJA FRY CHAMPION</p>
+              <p className="font-black text-[10px] md:text-xs uppercase tracking-[0.4em] mb-8 italic underline underline-offset-8 decoration-4 shrink-0">BHEJA FRY CHAMPION</p>
               {isHost && (
-                <button onClick={() => socket.emit('restart_game', { roomId })} className={`border-[3px] ${bColor} shadow-[4px_4px_0px_${shadowColor}] text-base font-black py-4 px-10 rounded-full uppercase transition-all active:translate-y-1 active:shadow-none shrink-0 ${playAgainBtn}`}>
+                <button onClick={() => socket.emit('restart_game', { roomId })} className={`border-[3px] ${bColor} shadow-[4px_4px_0px_${shadowColor}] text-sm md:text-base font-black py-3 px-8 md:py-4 md:px-10 rounded-full uppercase transition-all active:translate-y-1 active:shadow-none shrink-0 ${playAgainBtn}`}>
                   PLAY AGAIN
                 </button>
               )}
@@ -540,45 +540,40 @@ export default function Room() {
           ) : (
             <>
               {/* TIMER BAR */}
-              <div className={`w-full h-4 shrink-0 relative border-b-[3px] ${bColor} ${timerTrack}`}>
+              <div className={`w-full h-3 md:h-4 shrink-0 relative border-b-[3px] ${bColor} ${timerTrack}`}>
                 <div className={`absolute top-0 left-0 h-full transition-all duration-1000 ease-linear ${timeLeft <= 5 ? timerFillLow : timerFillNormal}`} style={{ width: `${currentPrompt ? (timeLeft / currentPrompt.duration) * 100 : 0}%` }} />
               </div>
 
               <div className="flex-1 flex flex-col p-2 md:p-4 relative z-10 w-full min-h-0">
                 <div className="w-full flex justify-end mb-2 shrink-0">
-                  <div className={`border-[2px] ${bColor} shadow-[3px_3px_0px_${shadowColor}] px-4 py-1.5 rounded-xl font-black text-xl italic h-fit ${timerBadge}`}>
+                  <div className={`border-[2px] ${bColor} shadow-[3px_3px_0px_${shadowColor}] px-3 md:px-4 py-1 md:py-1.5 rounded-xl font-black text-lg md:text-xl italic h-fit ${timerBadge}`}>
                     {timeLeft}s
                   </div>
                 </div>
 
                 <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center max-w-2xl mx-auto w-full min-h-0">
                   {roundState === 'ACTIVE' && currentPrompt && (
-                    <div className="animate-fadeIn flex flex-col items-center gap-2 w-full h-full min-h-0">
+                    <div className="animate-fadeIn flex flex-col items-center justify-center gap-2 md:gap-4 w-full h-full min-h-0">
                       
                       {currentPrompt.textContent && (
-                        <p className={`text-base sm:text-lg md:text-xl font-black uppercase tracking-tighter leading-tight italic px-3 shrink-0 mb-1 ${promptText}`}>
+                        <p className={`text-sm sm:text-lg md:text-xl font-black uppercase tracking-tighter leading-tight italic px-3 shrink-0 mb-1 ${promptText}`}>
                           {currentPrompt.textContent}
                         </p>
                       )}
 
-                      {/* FIXED IMAGE LOGIC: 
-                          - Removed white wrapper entirely.
-                          - Replaced max-h-[35vh] with max-h-[25vh] md:max-h-[35vh] to prevent it from dominating.
-                          - Applied border directly to the image.
-                      */}
                       {currentPrompt.type === 'IMAGE' && currentPrompt.mediaUrl && (
                         <div className="flex justify-center items-center shrink min-h-0 w-full">
                           <img 
                             src={currentPrompt.mediaUrl} 
                             alt="Trivia" 
-                            className={`max-h-[25vh] md:max-h-[35vh] max-w-full object-contain rounded-xl border-[3px] ${bColor} shadow-[4px_4px_0px_${shadowColor}] transform ${isDarkMode ? '-rotate-1' : 'rotate-1'}`}
+                            className={`max-h-[20vh] md:max-h-[30vh] lg:max-h-[35vh] max-w-full object-contain rounded-xl border-[3px] ${bColor} shadow-[4px_4px_0px_${shadowColor}] transform ${isDarkMode ? '-rotate-1' : 'rotate-1'}`}
                           />
                         </div>
                       )}
 
                       {currentPrompt.type === 'MUSIC' && currentPrompt.mediaUrl && (
-                        <div className={`p-3 rounded-xl border-[3px] ${bColor} shadow-[4px_4px_0px_${shadowColor}] shrink-0 ${promptMusic}`}>
-                          <audio controls autoPlay src={currentPrompt.mediaUrl} className="outline-none h-10 w-full">
+                        <div className={`p-2 md:p-3 rounded-xl border-[3px] ${bColor} shadow-[4px_4px_0px_${shadowColor}] shrink-0 w-full max-w-[300px] ${promptMusic}`}>
+                          <audio controls autoPlay src={currentPrompt.mediaUrl} className="outline-none h-8 md:h-10 w-full">
                             Your browser does not support the audio element.
                           </audio>
                         </div>
@@ -588,11 +583,11 @@ export default function Room() {
 
                   {roundState === 'ENDED' && (
                     <div className="animate-bounce-slow flex flex-col items-center w-full min-h-0 justify-center">
-                      <span className={`text-xl font-black uppercase mb-4 block tracking-widest italic underline decoration-4 shrink-0 ${roundOverText}`}>ROUND OVER!</span>
+                      <span className={`text-lg md:text-xl font-black uppercase mb-4 block tracking-widest italic underline decoration-4 shrink-0 ${roundOverText}`}>ROUND OVER!</span>
                       
-                      <div className="flex flex-wrap justify-center gap-4 min-h-0 overflow-y-auto custom-scrollbar p-3 pb-4 mb-2">
+                      <div className="flex flex-wrap justify-center gap-3 md:gap-4 min-h-0 overflow-y-auto custom-scrollbar p-2 md:p-3 pb-4 mb-2">
                         {revealedAnswers.map((ans, idx) => (
-                          <span key={idx} className={`border-[3px] ${bColor} shadow-[4px_4px_0px_${shadowColor}] px-6 py-2 md:py-3 rounded-2xl font-black uppercase text-xl md:text-2xl italic tracking-tighter transform ${isDarkMode ? 'rotate-1' : '-rotate-1'} shrink-0 ${answerBadge}`}>
+                          <span key={idx} className={`border-[3px] ${bColor} shadow-[4px_4px_0px_${shadowColor}] px-4 py-2 md:px-6 md:py-3 rounded-2xl font-black uppercase text-base md:text-2xl italic tracking-tighter transform ${isDarkMode ? 'rotate-1' : '-rotate-1'} shrink-0 ${answerBadge}`}>
                             {ans}
                           </span>
                         ))}
@@ -603,10 +598,10 @@ export default function Room() {
               </div>
 
               {/* CHAT BOX */}
-              <div className={`h-28 md:h-32 shrink-0 overflow-y-auto px-4 py-3 space-y-2 backdrop-blur-md border-t-[3px] ${bColor} custom-scrollbar ${chatBg}`}>
+              <div className={`h-24 sm:h-28 lg:h-32 shrink-0 overflow-y-auto px-3 md:px-4 py-2 md:py-3 space-y-2 backdrop-blur-md border-t-[3px] ${bColor} custom-scrollbar ${chatBg}`}>
                 {chatLog.map((msg, index) => (
                   <div key={index} className={`flex ${msg.system ? 'justify-center' : 'justify-start'}`}>
-                    <div className={`px-3 py-1.5 rounded-lg text-[10px] font-black border-[2px] ${bColor} shadow-[2px_2px_0px_${shadowColor}] ${msg.system ? chatSystem + ' uppercase italic tracking-tighter' : chatUser}`}>
+                    <div className={`px-2 py-1 md:px-3 md:py-1.5 rounded-lg text-[9px] md:text-[10px] font-black border-[2px] ${bColor} shadow-[2px_2px_0px_${shadowColor}] ${msg.system ? chatSystem + ' uppercase italic tracking-tighter' : chatUser}`}>
                       {!msg.system && <span className={`mr-2 underline ${chatUsername}`}>{msg.username} &gt;</span>}
                       {msg.text}
                     </div>
@@ -616,7 +611,7 @@ export default function Room() {
               </div>
 
               {/* INPUT AREA */}
-              <form onSubmit={submitGuess} className={`p-3 md:p-4 border-t-[3px] ${bColor} flex gap-2 md:gap-3 shrink-0 ${inputArea}`}>
+              <form onSubmit={submitGuess} className={`p-2 md:p-4 border-t-[3px] ${bColor} flex gap-2 md:gap-3 shrink-0 ${inputArea}`}>
                 <input 
                   ref={inputRef} 
                   type="text" 
@@ -624,10 +619,10 @@ export default function Room() {
                   onChange={(e) => setGuessInput(e.target.value)} 
                   disabled={hasGuessed || roundState !== 'ACTIVE'} 
                   placeholder={hasGuessed ? "NAILED IT! WAIT..." : "TYPE YOUR GUESS..."} 
-                  className={`flex-grow border-[2px] ${bColor} rounded-xl px-4 py-2 md:py-3 transition-colors font-black uppercase text-sm md:text-base tracking-widest shadow-inner ${guessInputClass}`} 
+                  className={`flex-grow border-[2px] ${bColor} rounded-xl px-3 py-2 md:px-4 md:py-3 transition-colors font-black uppercase text-xs sm:text-sm md:text-base tracking-widest shadow-inner min-w-0 ${guessInputClass}`} 
                   autoComplete="off" 
                 />
-                <button type="submit" disabled={hasGuessed || roundState !== 'ACTIVE'} className={`border-[3px] ${bColor} shadow-[4px_4px_0px_${shadowColor}] font-black px-4 md:px-6 rounded-xl uppercase active:translate-y-1 active:shadow-none transition-all disabled:opacity-50 disabled:shadow-none shrink-0 ${sendBtn}`}>
+                <button type="submit" disabled={hasGuessed || roundState !== 'ACTIVE'} className={`border-[3px] ${bColor} shadow-[4px_4px_0px_${shadowColor}] font-black px-4 md:px-6 rounded-xl uppercase active:translate-y-1 active:shadow-none transition-all disabled:opacity-50 disabled:shadow-none shrink-0 text-sm md:text-base ${sendBtn}`}>
                   SEND
                 </button>
               </form>
@@ -635,54 +630,54 @@ export default function Room() {
           )}
         </div>
 
-        {/* PANEL 3: LEADERBOARD */}
-        <div className="flex flex-col gap-4 h-full overflow-hidden min-h-0">
+        {/* PANEL 3: LEADERBOARD (Middle section on mobile, right on desktop) */}
+        <div className="flex flex-col gap-4 overflow-hidden order-2 lg:order-3 h-[50dvh] lg:h-full lg:min-h-0">
           <button onClick={handleLeave} className={`border-[3px] shadow-[4px_4px_0px_#ef4444] py-3 rounded-xl font-black uppercase tracking-[0.2em] text-[10px] active:translate-y-1 active:shadow-none transition-all shrink-0 ${exitRoomBtn}`}>
             EXIT ROOM
           </button>
 
           <div className={`border-[3px] ${bColor} shadow-[6px_6px_0px_${shadowColor}] rounded-3xl flex-1 flex flex-col min-h-0 overflow-hidden ${panelTexture}`}>
-            <div className={`p-4 border-b-[3px] ${bColor} backdrop-blur-sm flex justify-between items-center shrink-0 ${lbHeader}`}>
-              <h3 className={`text-xs font-black uppercase italic tracking-tighter ${lbTitle}`}>Players</h3>
-              <span className={`font-black border-[2px] ${bColor} shadow-[2px_2px_0px_${shadowColor}] px-3 py-0.5 rounded-full text-[9px] ${goalBadge}`}>GOAL: {settings?.maxScore ?? 100}</span>
+            <div className={`p-3 md:p-4 border-b-[3px] ${bColor} backdrop-blur-sm flex justify-between items-center shrink-0 ${lbHeader}`}>
+              <h3 className={`text-[10px] md:text-xs font-black uppercase italic tracking-tighter ${lbTitle}`}>Players</h3>
+              <span className={`font-black border-[2px] ${bColor} shadow-[2px_2px_0px_${shadowColor}] px-2 py-0.5 md:px-3 rounded-full text-[8px] md:text-[9px] ${goalBadge}`}>GOAL: {settings?.maxScore ?? 100}</span>
             </div>
             
-            <ul className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar min-h-0">
+            <ul className="flex-1 overflow-y-auto p-3 md:p-4 space-y-3 custom-scrollbar min-h-0">
               {[...participants].sort((a, b) => b.score - a.score).map((p, index) => (
                 <li 
                   key={p.user.id} 
-                  className={`flex items-center justify-between p-3 rounded-xl border-[2px] ${bColor} transition-all ${
+                  className={`flex items-center justify-between p-2 md:p-3 rounded-xl border-[2px] ${bColor} transition-all ${
                     p.justGuessed 
                       ? `${playerItemActive} shadow-[4px_4px_0px_${shadowColor}] -translate-y-0.5` 
                       : `${playerItemInactive} shadow-[2px_2px_0px_${shadowColor}]`
                   }`}
                 >
-                  <div className="flex items-center space-x-3 w-full">
-                    <div className={`w-6 text-center font-black text-sm ${p.justGuessed ? playerRankActive : playerRankInactive}`}>
+                  <div className="flex items-center space-x-2 md:space-x-3 w-full">
+                    <div className={`w-5 md:w-6 text-center font-black text-xs md:text-sm ${p.justGuessed ? playerRankActive : playerRankInactive}`}>
                       #{index + 1}
                     </div>
                     
                     <img 
                       src={p.user.avatarUrl || 'https://via.placeholder.com/40'} 
                       alt="avatar" 
-                      className={`w-10 h-10 rounded-full border-[2px] ${bColor} shrink-0 ${avatarBgPlayer}`} 
+                      className={`w-8 h-8 md:w-10 md:h-10 rounded-full border-[2px] ${bColor} shrink-0 ${avatarBgPlayer}`} 
                     />
                     
                     <div className="flex flex-col flex-grow overflow-hidden">
                       {/* Name on Left, Points on Right */}
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-black uppercase truncate flex items-center gap-1 tracking-tight">
+                      <div className="flex items-center justify-between gap-1 md:gap-2">
+                        <span className="font-black text-[10px] md:text-sm uppercase truncate flex items-center gap-1 tracking-tight">
                           {p.user.username}
-                          {p.user.id === roomDetails?.hostUserId && <span title="Room Host" className="text-xs">👑</span>}
+                          {p.user.id === roomDetails?.hostUserId && <span title="Room Host" className="text-[10px] md:text-xs">👑</span>}
                         </span>
-                        <span className={`text-sm font-black whitespace-nowrap ${p.justGuessed ? playerScoreActive : playerScoreInactive}`}>
+                        <span className={`text-xs md:text-sm font-black whitespace-nowrap ${p.justGuessed ? playerScoreActive : playerScoreInactive}`}>
                           {p.score} PTS
                         </span>
                       </div>
                       
                       {/* Timestamp underneath */}
                       {p.justGuessed && p.timeTaken && (
-                        <span className={`text-sm font-black font-mono mt-0.5 px-2 py-0.5 rounded-md w-fit border-[2px] ${bColor} ${correctBadge}`}>
+                        <span className={`text-[10px] md:text-sm font-black font-mono mt-0.5 px-1.5 md:px-2 py-0.5 rounded-md w-fit border-[2px] ${bColor} ${correctBadge}`}>
                           {p.timeTaken}s
                         </span>
                       )}
