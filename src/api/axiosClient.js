@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const BASE_URL = 'http://localhost:3000/api';
+const BASE_URL = 'https://bhejafry.fun/api';
 
 export const apiClient = axios.create({
   baseURL: BASE_URL,
