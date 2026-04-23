@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const BASE_URL = 'https://bhejafry.fun/api';
+const BASE_URL = 'https://api.bhejafry.fun/api';
 
 export const apiClient = axios.create({
   baseURL: BASE_URL,
