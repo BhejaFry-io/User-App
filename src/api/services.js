@@ -13,6 +13,12 @@ export const loginGuestAPI = async (username) => {
   return response.data;
 };
 
+// 🟢 NEW: PUT /api/auth/update-username
+export const updateUsernameAPI = async (username) => {
+  const response = await apiClient.put('/auth/update-username', { username });
+  return response.data;
+};
+
 // --- ROOMS ---
 // POST /api/rooms
 export const createRoom = async (roomData) => {

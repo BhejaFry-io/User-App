@@ -4,10 +4,57 @@ import {
   getRoomParticipants, getRoomDetails, leaveRoom, 
   updateRoomCategories, getCategories, updateRoomSettings, startGame
 } from '../api/services';
-import AdBanner from './AdBanner';
 import { SocketContext } from '../context/SocketContext';
 import { AuthContext } from '../context/AuthContext';
 import { ThemeContext } from '../context/ThemeContext'; 
+
+// ==========================================
+// --- CUSTOM CONFETTI COMPONENT ---
+// ==========================================
+const ConfettiBlast = () => {
+  const colors = ['bg-red-500', 'bg-blue-500', 'bg-green-500', 'bg-yellow-400', 'bg-pink-500', 'bg-purple-500', 'bg-orange-500', 'bg-teal-400'];
+  const shapes = ['rounded-full', 'rounded-sm', '']; 
+
+  const generateParticles = (side) => {
+    return [...Array(60)].map((_, i) => {
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      const shape = shapes[Math.floor(Math.random() * shapes.length)];
+      const size = Math.random() > 0.5 ? 'w-2 h-2 md:w-3 md:h-3' : 'w-2 h-3 md:w-3 md:h-4';
+
+      // 'left' shoots positive X (rightwards), 'right' shoots negative X (leftwards)
+      const directionMult = side === 'left' ? 1 : -1;
+      const tx = (10 + Math.random() * 80) * directionMult; 
+      const ty = -40 - Math.random() * 60; // Shoot upwards
+      const rot = Math.random() * 720;     
+      const delay = Math.random() * 0.15;  
+      const duration = 2.5 + Math.random() * 1.5; 
+
+      const positionClass = side === 'left' ? 'bottom-0 left-[-20px]' : 'bottom-0 right-[-20px]';
+
+      return (
+        <div
+          key={`${side}-${i}`}
+          className={`absolute ${positionClass} ${size} ${color} ${shape}`}
+          style={{
+            animation: `confetti-blast ${duration}s cubic-bezier(.25,.46,.45,.94) ${delay}s forwards`,
+            opacity: 0,
+            '--tx': `${tx}vw`,
+            '--ty': `${ty}vh`,
+            '--rot': `${rot}deg`,
+          }}
+        />
+      );
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 pointer-events-none z-[100] overflow-hidden">
+      {/* Trigger both sides simultaneously */}
+      {generateParticles('left')}
+      {generateParticles('right')}
+    </div>
+  );
+};
 
 export default function Room() {
   const { roomId } = useParams();
@@ -36,6 +83,10 @@ export default function Room() {
   const [revealedAnswers, setRevealedAnswers] = useState([]);
   const [winnerInfo, setWinnerInfo] = useState(null);
   
+  // Visual FX State
+  const [showConfetti, setShowConfetti] = useState(false);
+  const confettiTimer = useRef(null);
+
   const chatEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -52,6 +103,7 @@ export default function Room() {
 
     return () => {
       if (wrongSoundTimer.current) clearTimeout(wrongSoundTimer.current);
+      if (confettiTimer.current) clearTimeout(confettiTimer.current);
     };
   }, []);
 
@@ -111,9 +163,7 @@ export default function Room() {
   const timerBadge = isDarkMode ? "bg-[#facc15] text-black" : "bg-[#FDE047] text-[#1E293B]";
   
   const promptText = isDarkMode ? "text-[#60a5fa] drop-shadow-[1px_1px_0px_#000]" : "text-[#2563EB]";
-  const promptImageWrapper = isDarkMode ? "bg-white" : "bg-white"; 
   const promptMusic = isDarkMode ? "bg-[#facc15]" : "bg-[#FDE047]";
-  const promptQuote = isDarkMode ? "text-white drop-shadow-[1px_1px_0px_#000]" : "text-[#1E293B]";
   const roundOverText = isDarkMode ? "text-[#ef4444] drop-shadow-[1px_1px_0px_#000]" : "text-red-500";
   const answerBadge = isDarkMode ? "bg-[#22c55e] text-black" : "bg-[#22C55E] text-white";
   
@@ -260,10 +310,15 @@ export default function Room() {
 
     socket.on('chat_message', (data) => { setChatLog(log => [...log, { userId: data.userId, username: data.username, text: data.text }]); });
     
+    // --- CONFETTI TRIGGER ---
     socket.on('game_over', (data) => {
       setRoundState('GAME_OVER');
       setRoomDetails(prev => ({...prev, status: 'FINISHED'}));
       setWinnerInfo(data);
+      
+      setShowConfetti(true);
+      if (confettiTimer.current) clearTimeout(confettiTimer.current);
+      confettiTimer.current = setTimeout(() => setShowConfetti(false), 4000);
     });
     
     socket.on('game_restarted', () => {
@@ -271,6 +326,7 @@ export default function Room() {
       setRoomDetails(prev => ({ ...prev, status: 'WAITING' }));
       setChatLog([]);
       setWinnerInfo(null);
+      setShowConfetti(false);
       setParticipants(prev => prev.map(p => ({ ...p, score: 0, justGuessed: false, timeTaken: null })));
     });
     
@@ -352,12 +408,15 @@ export default function Room() {
   };
 
   return (
-    <div className={`min-h-screen ${bgClass} p-3 md:p-4 flex flex-col font-sans overflow-hidden relative transition-colors duration-500`}>
+    <div className={`h-[100dvh] w-full ${bgClass} p-3 md:p-4 flex flex-col font-sans overflow-hidden relative transition-colors duration-500`}>
+      
+      {showConfetti && <ConfettiBlast />}
+
       {/* Background Dots */}
       <div className={`absolute inset-0 ${dotOpacity} pointer-events-none z-0`} style={{ backgroundImage: dotPattern, backgroundSize: '30px 30px' }}></div>
 
       {/* HEADER */}
-      <div className={`max-w-[1400px] w-full mx-auto flex justify-between items-center border-[3px] ${bColor} p-2 md:p-3 rounded-xl mb-4 relative z-20 shadow-[4px_4px_0px_${shadowColor}] ${headerBg}`}>
+      <div className={`max-w-[1400px] w-full mx-auto flex justify-between items-center border-[3px] ${bColor} p-2 md:p-3 rounded-xl mb-4 relative z-20 shrink-0 shadow-[4px_4px_0px_${shadowColor}] ${headerBg}`}>
         <div className="flex items-center gap-3 md:gap-4">
           <div className={`px-2 py-1 rounded-md -rotate-1 border-[2px] ${bColor} shadow-[2px_2px_0px_${shadowColor}] ${titleBadge}`}>
             <h1 className="text-lg md:text-xl font-black italic tracking-tighter uppercase leading-none">BhejaFry</h1>
@@ -386,11 +445,11 @@ export default function Room() {
         </div>
       </div>
 
-      <div className={`max-w-[1400px] w-full mx-auto grid grid-cols-1 ${isLeftPaneOpen ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-4 flex-grow overflow-hidden relative z-10`}>
+      <div className={`max-w-[1400px] w-full mx-auto grid grid-cols-1 ${isLeftPaneOpen ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-4 flex-1 min-h-0 relative z-10`}>
         
         {/* PANEL 1: CONFIG */}
         {isLeftPaneOpen && (
-          <div className="flex flex-col gap-4 overflow-y-auto pr-1 custom-scrollbar">
+          <div className="flex flex-col gap-4 overflow-y-auto pr-1 custom-scrollbar min-h-0">
             <div className={`border-[3px] ${bColor} shadow-[6px_6px_0px_${shadowColor}] rounded-2xl p-4 flex flex-col h-full overflow-hidden ${panelTexture}`}>
               <h3 className={`text-[9px] font-black uppercase mb-3 tracking-widest italic underline decoration-2 ${configTitle}`}>Config Panel</h3>
               
@@ -453,27 +512,27 @@ export default function Room() {
         )}
 
         {/* PANEL 2: GAME WINDOW */}
-        <div className={`lg:col-span-2 flex flex-col h-full border-[3px] ${bColor} shadow-[8px_8px_0px_${shadowColor}] rounded-3xl overflow-hidden relative ${panelTexture}`}>
+        <div className={`lg:col-span-2 flex flex-col h-full border-[3px] ${bColor} shadow-[8px_8px_0px_${shadowColor}] rounded-3xl overflow-hidden relative min-h-0 ${panelTexture}`}>
           {roomDetails?.status === 'WAITING' ? (
-            <div className="flex flex-col items-center justify-center flex-grow p-6 text-center relative z-10">
-              <div className={`w-20 h-20 mb-4 border-[5px] rounded-full animate-spin ${spinner}`} />
-              <h2 className={`text-3xl font-black italic mb-2 uppercase tracking-tighter ${readyText}`}>READY?</h2>
-              <p className={`font-black text-[10px] mb-6 uppercase tracking-[0.2em] animate-pulse ${waitingText}`}>Waiting for host command...</p>
+            <div className="flex flex-col items-center justify-center flex-grow p-6 text-center relative z-10 min-h-0">
+              <div className={`w-20 h-20 mb-4 border-[5px] rounded-full animate-spin shrink-0 ${spinner}`} />
+              <h2 className={`text-3xl font-black italic mb-2 uppercase tracking-tighter shrink-0 ${readyText}`}>READY?</h2>
+              <p className={`font-black text-[10px] mb-6 uppercase tracking-[0.2em] animate-pulse shrink-0 ${waitingText}`}>Waiting for host command...</p>
               {isHost && (
-                <button onClick={handleStartGame} disabled={!roomDetails?.categories?.length} className={`border-[3px] ${bColor} shadow-[4px_4px_0px_${shadowColor}] hover:shadow-[1px_1px_0px_${shadowColor}] font-black py-4 px-10 rounded-full uppercase hover:translate-y-1 transition-all ${startBtn}`}>
+                <button onClick={handleStartGame} disabled={!roomDetails?.categories?.length} className={`border-[3px] ${bColor} shadow-[4px_4px_0px_${shadowColor}] hover:shadow-[1px_1px_0px_${shadowColor}] font-black py-4 px-10 rounded-full uppercase hover:translate-y-1 transition-all shrink-0 ${startBtn}`}>
                   START GAME
                 </button>
               )}
             </div>
           ) : roundState === 'GAME_OVER' ? (
-            <div className={`flex flex-col items-center justify-center flex-grow p-6 text-center relative z-10 border-b-[3px] ${bColor} ${gameOverBg}`}>
-              <h1 className={`text-5xl mb-4 ${trophyShadow}`}>🏆</h1>
-              <h2 className={`text-3xl md:text-4xl font-black uppercase italic tracking-tighter mb-2 ${winnerText}`}>
+            <div className={`flex flex-col items-center justify-center flex-grow p-6 text-center relative z-10 border-b-[3px] ${bColor} min-h-0 ${gameOverBg}`}>
+              <h1 className={`text-5xl mb-4 shrink-0 ${trophyShadow}`}>🏆</h1>
+              <h2 className={`text-3xl md:text-4xl font-black uppercase italic tracking-tighter mb-2 shrink-0 ${winnerText}`}>
                 {winnerInfo?.winnerName || [...participants].sort((a, b) => b.score - a.score)[0]?.user?.username}
               </h2>
-              <p className="font-black text-xs uppercase tracking-[0.4em] mb-8 italic underline underline-offset-8 decoration-4">BHEJA FRY CHAMPION</p>
+              <p className="font-black text-xs uppercase tracking-[0.4em] mb-8 italic underline underline-offset-8 decoration-4 shrink-0">BHEJA FRY CHAMPION</p>
               {isHost && (
-                <button onClick={() => socket.emit('restart_game', { roomId })} className={`border-[3px] ${bColor} shadow-[4px_4px_0px_${shadowColor}] text-base font-black py-4 px-10 rounded-full uppercase transition-all active:translate-y-1 active:shadow-none ${playAgainBtn}`}>
+                <button onClick={() => socket.emit('restart_game', { roomId })} className={`border-[3px] ${bColor} shadow-[4px_4px_0px_${shadowColor}] text-base font-black py-4 px-10 rounded-full uppercase transition-all active:translate-y-1 active:shadow-none shrink-0 ${playAgainBtn}`}>
                   PLAY AGAIN
                 </button>
               )}
@@ -481,41 +540,45 @@ export default function Room() {
           ) : (
             <>
               {/* TIMER BAR */}
-              <div className={`w-full h-4 relative border-b-[3px] ${bColor} ${timerTrack}`}>
+              <div className={`w-full h-4 shrink-0 relative border-b-[3px] ${bColor} ${timerTrack}`}>
                 <div className={`absolute top-0 left-0 h-full transition-all duration-1000 ease-linear ${timeLeft <= 5 ? timerFillLow : timerFillNormal}`} style={{ width: `${currentPrompt ? (timeLeft / currentPrompt.duration) * 100 : 0}%` }} />
               </div>
 
-              {/* OVERLAP FIX */}
-              <div className="flex-1 flex flex-col p-4 relative z-10 w-full overflow-hidden">
-                <div className="w-full flex justify-end min-h-[40px] mb-2">
+              <div className="flex-1 flex flex-col p-2 md:p-4 relative z-10 w-full min-h-0">
+                <div className="w-full flex justify-end mb-2 shrink-0">
                   <div className={`border-[2px] ${bColor} shadow-[3px_3px_0px_${shadowColor}] px-4 py-1.5 rounded-xl font-black text-xl italic h-fit ${timerBadge}`}>
                     {timeLeft}s
                   </div>
                 </div>
 
-                <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center max-w-2xl mx-auto w-full pb-6">
+                <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center max-w-2xl mx-auto w-full min-h-0">
                   {roundState === 'ACTIVE' && currentPrompt && (
-                    <div className="animate-fadeIn flex flex-col items-center gap-4 w-full">
+                    <div className="animate-fadeIn flex flex-col items-center gap-2 w-full h-full min-h-0">
                       
                       {currentPrompt.textContent && (
-                        <p className={`text-xl md:text-2xl font-black uppercase tracking-tighter leading-none italic px-3 ${promptText}`}>
+                        <p className={`text-base sm:text-lg md:text-xl font-black uppercase tracking-tighter leading-tight italic px-3 shrink-0 mb-1 ${promptText}`}>
                           {currentPrompt.textContent}
                         </p>
                       )}
 
+                      {/* FIXED IMAGE LOGIC: 
+                          - Removed white wrapper entirely.
+                          - Replaced max-h-[35vh] with max-h-[25vh] md:max-h-[35vh] to prevent it from dominating.
+                          - Applied border directly to the image.
+                      */}
                       {currentPrompt.type === 'IMAGE' && currentPrompt.mediaUrl && (
-                        <div className={`p-2 rounded-2xl border-[3px] ${bColor} shadow-[6px_6px_0px_${shadowColor}] transform ${isDarkMode ? '-rotate-1' : ''} ${promptImageWrapper}`}>
+                        <div className="flex justify-center items-center shrink min-h-0 w-full">
                           <img 
                             src={currentPrompt.mediaUrl} 
                             alt="Trivia" 
-                            className="max-h-[200px] rounded-xl object-contain border-[2px] border-transparent" 
+                            className={`max-h-[25vh] md:max-h-[35vh] max-w-full object-contain rounded-xl border-[3px] ${bColor} shadow-[4px_4px_0px_${shadowColor}] transform ${isDarkMode ? '-rotate-1' : 'rotate-1'}`}
                           />
                         </div>
                       )}
 
                       {currentPrompt.type === 'MUSIC' && currentPrompt.mediaUrl && (
-                        <div className={`p-3 rounded-xl border-[3px] ${bColor} shadow-[4px_4px_0px_${shadowColor}] ${promptMusic}`}>
-                          <audio controls autoPlay src={currentPrompt.mediaUrl} className="outline-none h-10">
+                        <div className={`p-3 rounded-xl border-[3px] ${bColor} shadow-[4px_4px_0px_${shadowColor}] shrink-0 ${promptMusic}`}>
+                          <audio controls autoPlay src={currentPrompt.mediaUrl} className="outline-none h-10 w-full">
                             Your browser does not support the audio element.
                           </audio>
                         </div>
@@ -524,11 +587,12 @@ export default function Room() {
                   )}
 
                   {roundState === 'ENDED' && (
-                    <div className="animate-bounce-slow flex flex-col items-center w-full">
-                      <span className={`text-xl font-black uppercase mb-4 block tracking-widest italic underline decoration-4 ${roundOverText}`}>ROUND OVER!</span>
-                      <div className="flex flex-wrap justify-center gap-3">
+                    <div className="animate-bounce-slow flex flex-col items-center w-full min-h-0 justify-center">
+                      <span className={`text-xl font-black uppercase mb-4 block tracking-widest italic underline decoration-4 shrink-0 ${roundOverText}`}>ROUND OVER!</span>
+                      
+                      <div className="flex flex-wrap justify-center gap-4 min-h-0 overflow-y-auto custom-scrollbar p-3 pb-4 mb-2">
                         {revealedAnswers.map((ans, idx) => (
-                          <span key={idx} className={`border-[3px] ${bColor} shadow-[4px_4px_0px_${shadowColor}] px-6 py-2 md:py-3 rounded-2xl font-black uppercase text-xl md:text-2xl italic tracking-tighter transform ${isDarkMode ? 'rotate-1' : '-rotate-1'} ${answerBadge}`}>
+                          <span key={idx} className={`border-[3px] ${bColor} shadow-[4px_4px_0px_${shadowColor}] px-6 py-2 md:py-3 rounded-2xl font-black uppercase text-xl md:text-2xl italic tracking-tighter transform ${isDarkMode ? 'rotate-1' : '-rotate-1'} shrink-0 ${answerBadge}`}>
                             {ans}
                           </span>
                         ))}
@@ -539,7 +603,7 @@ export default function Room() {
               </div>
 
               {/* CHAT BOX */}
-              <div className={`h-32 overflow-y-auto px-4 py-3 space-y-2 backdrop-blur-md border-t-[3px] ${bColor} custom-scrollbar ${chatBg}`}>
+              <div className={`h-28 md:h-32 shrink-0 overflow-y-auto px-4 py-3 space-y-2 backdrop-blur-md border-t-[3px] ${bColor} custom-scrollbar ${chatBg}`}>
                 {chatLog.map((msg, index) => (
                   <div key={index} className={`flex ${msg.system ? 'justify-center' : 'justify-start'}`}>
                     <div className={`px-3 py-1.5 rounded-lg text-[10px] font-black border-[2px] ${bColor} shadow-[2px_2px_0px_${shadowColor}] ${msg.system ? chatSystem + ' uppercase italic tracking-tighter' : chatUser}`}>
@@ -552,7 +616,7 @@ export default function Room() {
               </div>
 
               {/* INPUT AREA */}
-              <form onSubmit={submitGuess} className={`p-4 border-t-[3px] ${bColor} flex gap-3 ${inputArea}`}>
+              <form onSubmit={submitGuess} className={`p-3 md:p-4 border-t-[3px] ${bColor} flex gap-2 md:gap-3 shrink-0 ${inputArea}`}>
                 <input 
                   ref={inputRef} 
                   type="text" 
@@ -560,10 +624,10 @@ export default function Room() {
                   onChange={(e) => setGuessInput(e.target.value)} 
                   disabled={hasGuessed || roundState !== 'ACTIVE'} 
                   placeholder={hasGuessed ? "NAILED IT! WAIT..." : "TYPE YOUR GUESS..."} 
-                  className={`flex-grow border-[2px] ${bColor} rounded-xl px-4 py-3 transition-colors font-black uppercase text-base tracking-widest shadow-inner ${guessInputClass}`} 
+                  className={`flex-grow border-[2px] ${bColor} rounded-xl px-4 py-2 md:py-3 transition-colors font-black uppercase text-sm md:text-base tracking-widest shadow-inner ${guessInputClass}`} 
                   autoComplete="off" 
                 />
-                <button type="submit" disabled={hasGuessed || roundState !== 'ACTIVE'} className={`border-[3px] ${bColor} shadow-[4px_4px_0px_${shadowColor}] font-black px-6 rounded-xl uppercase active:translate-y-1 active:shadow-none transition-all disabled:opacity-50 disabled:shadow-none ${sendBtn}`}>
+                <button type="submit" disabled={hasGuessed || roundState !== 'ACTIVE'} className={`border-[3px] ${bColor} shadow-[4px_4px_0px_${shadowColor}] font-black px-4 md:px-6 rounded-xl uppercase active:translate-y-1 active:shadow-none transition-all disabled:opacity-50 disabled:shadow-none shrink-0 ${sendBtn}`}>
                   SEND
                 </button>
               </form>
@@ -572,18 +636,18 @@ export default function Room() {
         </div>
 
         {/* PANEL 3: LEADERBOARD */}
-        <div className="flex flex-col gap-4 h-full overflow-hidden">
-          <button onClick={handleLeave} className={`border-[3px] shadow-[4px_4px_0px_#ef4444] py-3 rounded-xl font-black uppercase tracking-[0.2em] text-[10px] active:translate-y-1 active:shadow-none transition-all ${exitRoomBtn}`}>
+        <div className="flex flex-col gap-4 h-full overflow-hidden min-h-0">
+          <button onClick={handleLeave} className={`border-[3px] shadow-[4px_4px_0px_#ef4444] py-3 rounded-xl font-black uppercase tracking-[0.2em] text-[10px] active:translate-y-1 active:shadow-none transition-all shrink-0 ${exitRoomBtn}`}>
             EXIT ROOM
           </button>
 
-          <div className={`border-[3px] ${bColor} shadow-[6px_6px_0px_${shadowColor}] rounded-3xl flex-grow flex flex-col overflow-hidden ${panelTexture}`}>
-            <div className={`p-4 border-b-[3px] ${bColor} backdrop-blur-sm flex justify-between items-center ${lbHeader}`}>
+          <div className={`border-[3px] ${bColor} shadow-[6px_6px_0px_${shadowColor}] rounded-3xl flex-1 flex flex-col min-h-0 overflow-hidden ${panelTexture}`}>
+            <div className={`p-4 border-b-[3px] ${bColor} backdrop-blur-sm flex justify-between items-center shrink-0 ${lbHeader}`}>
               <h3 className={`text-xs font-black uppercase italic tracking-tighter ${lbTitle}`}>Players</h3>
               <span className={`font-black border-[2px] ${bColor} shadow-[2px_2px_0px_${shadowColor}] px-3 py-0.5 rounded-full text-[9px] ${goalBadge}`}>GOAL: {settings?.maxScore ?? 100}</span>
             </div>
             
-            <ul className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+            <ul className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar min-h-0">
               {[...participants].sort((a, b) => b.score - a.score).map((p, index) => (
                 <li 
                   key={p.user.id} 
@@ -601,7 +665,7 @@ export default function Room() {
                     <img 
                       src={p.user.avatarUrl || 'https://via.placeholder.com/40'} 
                       alt="avatar" 
-                      className={`w-10 h-10 rounded-full border-[2px] ${bColor} ${avatarBgPlayer}`} 
+                      className={`w-10 h-10 rounded-full border-[2px] ${bColor} shrink-0 ${avatarBgPlayer}`} 
                     />
                     
                     <div className="flex flex-col flex-grow overflow-hidden">
@@ -616,7 +680,7 @@ export default function Room() {
                         </span>
                       </div>
                       
-                      {/* Timestamp underneath: Bold, no brackets, sized correctly, Removed Correct*/}
+                      {/* Timestamp underneath */}
                       {p.justGuessed && p.timeTaken && (
                         <span className={`text-sm font-black font-mono mt-0.5 px-2 py-0.5 rounded-md w-fit border-[2px] ${bColor} ${correctBadge}`}>
                           {p.timeTaken}s
@@ -631,12 +695,23 @@ export default function Room() {
         </div>
       </div>
 
-      {/* AD BANNER AT THE VERY BOTTOM */}
-      <div className="w-full max-w-[1400px] mx-auto z-20 mt-4 shrink-0">
-        <AdBanner />
-      </div>
-
       <style>{`
+        /* CONFETTI ANIMATION LOGIC */
+        @keyframes confetti-blast {
+          0% { 
+            transform: translate(0, 0) rotate(0deg) scale(0); 
+            opacity: 1; 
+          }
+          20% { 
+            transform: translate(calc(var(--tx) * 0.6), var(--ty)) rotate(calc(var(--rot) * 0.5)) scale(1.2); 
+            opacity: 1; 
+          }
+          100% { 
+            transform: translate(var(--tx), calc(var(--ty) + 80vh)) rotate(var(--rot)) scale(1); 
+            opacity: 0; 
+          }
+        }
+      
         .custom-scrollbar::-webkit-scrollbar { width: ${isDarkMode ? '6px' : '4px'}; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { 

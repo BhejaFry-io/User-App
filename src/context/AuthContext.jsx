@@ -53,8 +53,15 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('user'); 
   };
 
+// 🟢 NEW: Update local user state immediately after a successful DB update
+  const updateUser = (updatedUserData) => {
+    setUser(updatedUserData);
+    localStorage.setItem('user', JSON.stringify(updatedUserData));
+  };
+
+  // ADD `updateUser` TO THE RETURN STATEMENT:
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, loginGuest }}>
+    <AuthContext.Provider value={{ user, token, login, logout, loginGuest, updateUser }}>
       {children}
     </AuthContext.Provider>
   );
