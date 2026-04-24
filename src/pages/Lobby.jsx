@@ -21,16 +21,14 @@ export default function Lobby() {
   const { user, login, logout, loginGuest, updateUser } = useContext(AuthContext);
   const { isDarkMode, toggleTheme } = useContext(ThemeContext);
 
-  // 🟢 NEW: Automatically clear all forms and errors when auth state changes
+  // Automatically clear all forms and errors when auth state changes
   useEffect(() => {
     if (!user) {
-      // If user logs out, clear profile edit states
       setUpdateError('');
       setNewUsername('');
       setIsEditingName(false);
       setIsProfileOpen(false);
     } else {
-      // If user logs in, clear guest login states
       setGuestError('');
       setGuestName('');
     }
@@ -163,12 +161,20 @@ export default function Lobby() {
                       <span className={`font-black text-xs md:text-sm text-center truncate w-full ${headingText}`} title={user.username}>
                         {user.username}
                       </span>
-                      <button 
-                        onClick={() => { setIsEditingName(true); setNewUsername(user.username); }} 
-                        className="text-[10px] md:text-xs text-blue-500 underline font-bold hover:text-blue-600 mb-1"
-                      >
-                        Edit Username
-                      </button>
+                      
+                      {/* 🟢 NEW: Conditional rendering for Guests vs Google Users */}
+                      {user.email ? (
+                        <button 
+                          onClick={() => { setIsEditingName(true); setNewUsername(user.username); }} 
+                          className="text-[10px] md:text-xs text-blue-500 underline font-bold hover:text-blue-600 mb-1"
+                        >
+                          Edit Username
+                        </button>
+                      ) : (
+                        <span className="text-[9px] md:text-[10px] text-slate-500 font-bold italic mb-1 text-center leading-tight">
+                          Log in to have custom name
+                        </span>
+                      )}
                     </>
                   ) : (
                     <div className="w-full flex flex-col gap-2">
