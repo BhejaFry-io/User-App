@@ -83,12 +83,14 @@ export default function Room() {
   const [revealedAnswers, setRevealedAnswers] = useState([]);
   const [winnerInfo, setWinnerInfo] = useState(null);
   
-  // Visual FX State
+  // Visual FX & SPA State
   const [showConfetti, setShowConfetti] = useState(false);
   const confettiTimer = useRef(null);
 
   const chatEndRef = useRef(null);
   const inputRef = useRef(null);
+  const isRefreshing = useRef(false);
+  const isIntentionalExit = useRef(false); // 🟢 TRACKS INTENTIONAL EXITS
 
   // --- SOUND EFFECTS ---
   const correctSound = useRef(new Audio('/correct.mp3'));
@@ -212,6 +214,10 @@ export default function Room() {
   }, [roundState, hasGuessed]);
 
   useEffect(() => {
+    // 🟢 DETECT HARD REFRESH vs SPA NAVIGATION
+    const handleBeforeUnload = () => { isRefreshing.current = true; };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
     if (!socket || !roomId) return;
     socket.emit('join_game_room', { roomId });
 
@@ -220,10 +226,21 @@ export default function Room() {
         const res = await getRoomParticipants(roomId);
         if (res.success) {
           setParticipants(prev => {
-            const localStateMap = new Map(prev.map(p => [p.user.id, { justGuessed: p.justGuessed, timeTaken: p.timeTaken }]));
+            const localStateMap = new Map(prev.map(p => [p.user.id, { 
+              justGuessed: p.justGuessed, 
+              timeTaken: p.timeTaken,
+              localScore: p.score 
+            }]));
+            
             return res.data.map(newP => {
               const localState = localStateMap.get(newP.user.id) || {};
-              return { ...newP, ...localState };
+              const highestScore = Math.max((newP.score || 0), (localState.localScore || 0));
+              
+              return { 
+                ...newP, 
+                ...localState,
+                score: highestScore 
+              };
             });
           });
         }
@@ -286,7 +303,9 @@ export default function Room() {
       setChatLog(log => [...log, { system: true, text: `🌟 ${data.username} Correct! (+${data.pointsEarned} pts)` }]);
     });
 
-    socket.on('player_left', (data) => { setParticipants(prev => prev.filter(p => p.user.id !== data.userId)); });
+    socket.on('player_left', (data) => { 
+      setParticipants(prev => prev.filter(p => String(p.user.id) !== String(data.userId))); 
+    });
     
     socket.on('host_updated', (data) => {
       setRoomDetails(prev => ({ ...prev, hostUserId: data.newHostId }));
@@ -310,7 +329,6 @@ export default function Room() {
 
     socket.on('chat_message', (data) => { setChatLog(log => [...log, { userId: data.userId, username: data.username, text: data.text }]); });
     
-    // --- CONFETTI TRIGGER ---
     socket.on('game_over', (data) => {
       setRoundState('GAME_OVER');
       setRoomDetails(prev => ({...prev, status: 'FINISHED'}));
@@ -332,11 +350,19 @@ export default function Room() {
     
     socket.on('player_connected', fetchFreshParticipants); 
 
-    return () => { socket.off(); };
+    // 🟢 ENHANCED CLEANUP: Only fires grace period on accidental "Back" button presses
+    return () => { 
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      socket.off(); 
+      if (!isRefreshing.current && !isIntentionalExit.current) {
+        socket.emit('leave_game_room', { roomId });
+      }
+    };
   }, [socket, roomId]);
 
   useEffect(() => {
     getCategories().then(res => { if (res.success) setAllCategories(res.data); });
+    
     getRoomDetails(roomId).then(res => {
       if (res.success) {
         setRoomDetails(res.data);
@@ -344,10 +370,28 @@ export default function Room() {
         if (res.data.status === 'FINISHED') setRoundState('GAME_OVER');
       }
     }).catch(() => navigate('/'));
-    getRoomParticipants(roomId).then(res => { if (res.success) setParticipants(res.data); });
+
+    getRoomParticipants(roomId).then(res => { 
+      if (res.success) { 
+        setParticipants(current => {
+          const localMap = new Map(current.map(p => [p.user.id, p.score || 0]));
+          return res.data.map(newP => ({
+            ...newP,
+            score: Math.max(newP.score, localMap.get(newP.user.id) || 0)
+          }));
+        });
+      } 
+    });
   }, [roomId, navigate]);
 
-  const handleLeave = async () => { try { await leaveRoom(roomId); navigate('/'); } catch (e) {} };
+  // 🟢 INTENTIONAL EXIT HANDLER
+  const handleLeave = async () => { 
+    isIntentionalExit.current = true; 
+    try { 
+      await leaveRoom(roomId); 
+      navigate('/'); 
+    } catch (e) {} 
+  };
   
   const copyToClipboard = () => {
     navigator.clipboard.writeText(roomDetails?.inviteCode || '');

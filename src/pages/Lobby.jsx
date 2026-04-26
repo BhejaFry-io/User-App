@@ -45,7 +45,7 @@ export default function Lobby() {
     }
   };
 
-  const handleJoinRoom = async (e) => {
+const handleJoinRoom = async (e) => {
     e.preventDefault();
     try {
       const response = await joinRoom({ inviteCode });
@@ -53,7 +53,8 @@ export default function Lobby() {
         navigate(`/room/${response.data.roomId}`);
       }
     } catch (error) {
-      alert("Invalid Invite Code or Room already started");
+      // 🟢 UPDATED: Removed "or Room already started" text
+      alert("Invalid Invite Code. Please check and try again.");
     }
   };
 
