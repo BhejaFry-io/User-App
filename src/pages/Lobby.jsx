@@ -1,5 +1,5 @@
 import React, { useState, useContext, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
 import { createRoom, joinRoom, updateUsernameAPI } from '../api/services'; 
 import { AuthContext } from '../context/AuthContext';
@@ -17,9 +17,23 @@ export default function Lobby() {
   const [newUsername, setNewUsername] = useState('');
   const [updateError, setUpdateError] = useState('');
   
+  // 🟢 NEW: State to hold the session expiration message
+  const [sessionError, setSessionError] = useState('');
+
   const navigate = useNavigate();
+  const location = useLocation(); // 🟢 NEW: Need this to read the URL
   const { user, login, logout, loginGuest, updateUser } = useContext(AuthContext);
   const { isDarkMode, toggleTheme } = useContext(ThemeContext);
+
+  // 🟢 NEW: Check the URL for the expired flag when the component mounts
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('expired') === 'true') {
+      setSessionError('Session expired. Please log in again!');
+      // Clean up the URL so the error doesn't persist on page refresh
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location, navigate]);
 
   // Automatically clear all forms and errors when auth state changes
   useEffect(() => {
@@ -31,6 +45,7 @@ export default function Lobby() {
     } else {
       setGuestError('');
       setGuestName('');
+      setSessionError(''); // 🟢 Clear expiration error when they successfully log back in
     }
   }, [user]);
 
@@ -45,7 +60,7 @@ export default function Lobby() {
     }
   };
 
-const handleJoinRoom = async (e) => {
+  const handleJoinRoom = async (e) => {
     e.preventDefault();
     try {
       const response = await joinRoom({ inviteCode });
@@ -53,7 +68,6 @@ const handleJoinRoom = async (e) => {
         navigate(`/room/${response.data.roomId}`);
       }
     } catch (error) {
-      // 🟢 UPDATED: Removed "or Room already started" text
       alert("Invalid Invite Code. Please check and try again.");
     }
   };
@@ -163,7 +177,6 @@ const handleJoinRoom = async (e) => {
                         {user.username}
                       </span>
                       
-                      {/* 🟢 NEW: Conditional rendering for Guests vs Google Users */}
                       {user.email ? (
                         <button 
                           onClick={() => { setIsEditingName(true); setNewUsername(user.username); }} 
@@ -216,12 +229,21 @@ const handleJoinRoom = async (e) => {
         
         <div className={`border-[4px] md:border-[6px] p-5 md:p-8 rounded-[1.5rem] md:rounded-[2.5rem] w-full max-w-sm md:max-w-md relative transition-all duration-300 max-h-full overflow-y-auto custom-scrollbar mr-2 md:mr-4 mb-2 md:mb-4 ${cardBg}`}>
           
+          {/* 🟢 NEW: Display the Session Expiration Error inside the card */}
+          {sessionError && (
+            <div className="w-full mb-4 bg-[#ef4444] border-[2px] md:border-[3px] border-black shadow-[4px_4px_0px_#000] p-2 md:p-3 rounded-xl animate-pulse">
+              <p className="text-white font-black text-[10px] md:text-xs uppercase text-center tracking-widest">
+                ⚠️ {sessionError}
+              </p>
+            </div>
+          )}
+
           {!user ? (
             <div className="flex flex-col items-center justify-center py-2 md:py-4 w-full">
               <h2 className={`text-xl md:text-3xl font-black mb-1 md:mb-2 uppercase italic tracking-tighter text-center ${headingText}`}>Ready to Play?</h2>
               <p className={`font-bold text-[10px] md:text-sm mb-4 md:mb-6 text-center ${pText}`}>Choose how you want to join</p>
 
-              {/* 🟢 Guest Login Form */}
+              {/* Guest Login Form */}
               <form onSubmit={handleGuestLogin} className="w-full space-y-3 md:space-y-4 mb-4 md:mb-6">
                 <div>
                   <input

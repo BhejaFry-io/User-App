@@ -21,8 +21,21 @@ export const SocketProvider = ({ children }) => {
         console.log('🟢 Connected to Socket server');
       });
 
+      // 🟢 THE FIX: The Socket Bouncer
       newSocket.on('connect_error', (err) => {
         console.error('🔴 Socket connection error:', err.message);
+        
+        // If the backend middleware rejects the token
+        if (err.message === 'Invalid token' || err.message === 'Auth error') {
+          console.warn("Socket session expired. Forcing logout...");
+          
+          // Wipe the dead session data
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          
+          // Instantly kick them to the login page so they can refresh their session
+          window.location.href = '/login?expired=true';
+        }
       });
 
       setSocket(newSocket);
