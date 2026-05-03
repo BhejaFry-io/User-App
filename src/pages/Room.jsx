@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useContext, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
   getRoomParticipants, getRoomDetails, leaveRoom, 
   updateRoomCategories, getCategories, updateRoomSettings, startGame
@@ -21,10 +21,9 @@ const ConfettiBlast = () => {
       const shape = shapes[Math.floor(Math.random() * shapes.length)];
       const size = Math.random() > 0.5 ? 'w-2 h-2 md:w-3 md:h-3' : 'w-2 h-3 md:w-3 md:h-4';
 
-      // 'left' shoots positive X (rightwards), 'right' shoots negative X (leftwards)
       const directionMult = side === 'left' ? 1 : -1;
       const tx = (10 + Math.random() * 80) * directionMult; 
-      const ty = -40 - Math.random() * 60; // Shoot upwards
+      const ty = -40 - Math.random() * 60; 
       const rot = Math.random() * 720;     
       const delay = Math.random() * 0.15;  
       const duration = 2.5 + Math.random() * 1.5; 
@@ -49,7 +48,6 @@ const ConfettiBlast = () => {
 
   return (
     <div className="fixed inset-0 pointer-events-none z-[100] overflow-hidden">
-      {/* Trigger both sides simultaneously */}
       {generateParticles('left')}
       {generateParticles('right')}
     </div>
@@ -90,7 +88,7 @@ export default function Room() {
   const chatEndRef = useRef(null);
   const inputRef = useRef(null);
   const isRefreshing = useRef(false);
-  const isIntentionalExit = useRef(false); // 🟢 TRACKS INTENTIONAL EXITS
+  const isIntentionalExit = useRef(false); 
 
   // --- SOUND EFFECTS ---
   const correctSound = useRef(new Audio('/correct.mp3'));
@@ -116,7 +114,6 @@ export default function Room() {
   // ==========================================
   // --- ROBUST THEME VARIABLES ---
   // ==========================================
-  
   const bgClass = isDarkMode ? "bg-[#0f172a] text-white selection:bg-[#facc15] selection:text-black" : "bg-[#E0F2FE] text-[#1E293B] selection:bg-[#FDE047]";
   const dotPattern = isDarkMode ? "radial-gradient(#334155 2px, transparent 0)" : "radial-gradient(#1E293B 1px, transparent 0)";
   const dotOpacity = isDarkMode ? "opacity-40" : "opacity-20";
@@ -214,7 +211,6 @@ export default function Room() {
   }, [roundState, hasGuessed]);
 
   useEffect(() => {
-    // 🟢 DETECT HARD REFRESH vs SPA NAVIGATION
     const handleBeforeUnload = () => { isRefreshing.current = true; };
     window.addEventListener('beforeunload', handleBeforeUnload);
 
@@ -350,7 +346,6 @@ export default function Room() {
     
     socket.on('player_connected', fetchFreshParticipants); 
 
-    // 🟢 ENHANCED CLEANUP: Only fires grace period on accidental "Back" button presses
     return () => { 
       window.removeEventListener('beforeunload', handleBeforeUnload);
       socket.off(); 
@@ -384,7 +379,6 @@ export default function Room() {
     });
   }, [roomId, navigate]);
 
-  // 🟢 INTENTIONAL EXIT HANDLER
   const handleLeave = async () => { 
     isIntentionalExit.current = true; 
     try { 
@@ -456,20 +450,33 @@ export default function Room() {
       
       {showConfetti && <ConfettiBlast />}
 
+      {/* Floating Arrow Tab (Shows ONLY when Left Pane is Closed) */}
+      {!isLeftPaneOpen && (
+        <button 
+          onClick={() => setIsLeftPaneOpen(true)}
+          title="Open Menu"
+          className={`fixed left-0 top-1/2 -translate-y-1/2 z-50 border-[3px] border-l-0 ${bColor} shadow-[4px_4px_0px_${shadowColor}] rounded-r-xl px-1 py-4 text-sm font-black flex items-center justify-center ${menuBtn} cursor-pointer hover:translate-x-1 transition-all`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </button>
+      )}
+
       {/* Background Dots */}
       <div className={`absolute inset-0 ${dotOpacity} pointer-events-none z-0`} style={{ backgroundImage: dotPattern, backgroundSize: '30px 30px' }}></div>
 
       {/* HEADER */}
       <div className={`max-w-[1400px] w-full mx-auto flex justify-between items-center border-[3px] ${bColor} p-2 md:p-3 rounded-xl mb-4 relative z-20 shrink-0 shadow-[4px_4px_0px_${shadowColor}] ${headerBg}`}>
         <div className="flex items-center gap-3 md:gap-4">
-          <div className={`px-2 py-1 rounded-md -rotate-1 border-[2px] ${bColor} shadow-[2px_2px_0px_${shadowColor}] ${titleBadge}`}>
+          <Link to="/" className={`px-2 py-1 rounded-md -rotate-1 border-[2px] ${bColor} shadow-[2px_2px_0px_${shadowColor}] ${titleBadge} cursor-pointer hover:scale-105 transition-transform block`}>
             <h1 className="text-base sm:text-lg md:text-xl font-black italic tracking-tighter uppercase leading-none">BhejaFry</h1>
-          </div>
+          </Link>
           {roomDetails?.inviteCode && (
             <div className={`hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-lg border-[2px] ${bColor} ${codeBadge}`}>
               <span className={`text-[9px] font-black uppercase ${codeLabel}`}>CODE:</span>
               <span className={`font-mono text-sm font-bold tracking-widest ${codeValue}`}>{roomDetails.inviteCode}</span>
-              <button onClick={copyToClipboard} className={`text-[9px] font-black px-2 py-0.5 rounded border-[2px] ${bColor} shadow-[1px_1px_0px_${shadowColor}] transition-colors ${copyBtn}`}>
+              <button onClick={copyToClipboard} className={`text-[9px] font-black px-2 py-0.5 rounded border-[2px] ${bColor} shadow-[1px_1px_0px_${shadowColor}] transition-colors cursor-pointer ${copyBtn}`}>
                 {copied ? '✅' : 'COPY'}
               </button>
             </div>
@@ -478,24 +485,32 @@ export default function Room() {
         <div className="flex items-center gap-2 md:gap-3">
           <button 
             onClick={toggleTheme}
-            className={`border-[2px] ${bColor} px-2 py-1 md:px-3 md:py-1.5 rounded-lg text-sm md:text-lg flex items-center justify-center hover:-translate-y-0.5 shadow-[2px_2px_0px_${shadowColor}] transition-all ${menuBtn}`}
+            className={`border-[2px] ${bColor} px-2 py-1 md:px-3 md:py-1.5 rounded-lg text-sm md:text-lg flex items-center justify-center hover:-translate-y-0.5 shadow-[2px_2px_0px_${shadowColor}] transition-all cursor-pointer ${menuBtn}`}
           >
             {isDarkMode ? '🌙' : '☀️'}
-          </button>
-          
-          <button onClick={() => setIsLeftPaneOpen(!isLeftPaneOpen)} className={`border-[2px] ${bColor} px-3 py-1 md:px-4 md:py-1.5 rounded-lg text-[9px] md:text-[10px] font-black uppercase hover:-translate-y-0.5 shadow-[2px_2px_0px_${shadowColor}] transition-all ${menuBtn}`}>
-            {isLeftPaneOpen ? 'Close Menu' : 'Open Menu'}
           </button>
         </div>
       </div>
 
       <div className={`max-w-[1400px] w-full mx-auto grid grid-cols-1 ${isLeftPaneOpen ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-4 sm:gap-6 lg:gap-4 flex-1 lg:min-h-0 relative z-10 pb-4 lg:pb-0`}>
         
-        {/* PANEL 1: CONFIG (Pushed to bottom on mobile, side on desktop) */}
+        {/* PANEL 1: CONFIG */}
         {isLeftPaneOpen && (
           <div className="flex flex-col gap-4 overflow-y-auto pr-1 custom-scrollbar order-3 lg:order-1 h-[50dvh] lg:h-full lg:min-h-0">
             <div className={`border-[3px] ${bColor} shadow-[6px_6px_0px_${shadowColor}] rounded-2xl p-4 flex flex-col h-full overflow-hidden ${panelTexture}`}>
-              <h3 className={`text-[9px] font-black uppercase mb-3 tracking-widest italic underline decoration-2 ${configTitle}`}>Config Panel</h3>
+              
+              <div className="flex justify-between items-center mb-3">
+                <h3 className={`text-[9px] font-black uppercase tracking-widest italic underline decoration-2 m-0 ${configTitle}`}>Config Panel</h3>
+                <button 
+                  onClick={() => setIsLeftPaneOpen(false)} 
+                  title="Close Menu"
+                  className={`cursor-pointer border-[2px] ${bColor} shadow-[2px_2px_0px_${shadowColor}] rounded-md p-1 flex items-center justify-center hover:-translate-x-0.5 transition-transform ${menuBtn}`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                  </svg>
+                </button>
+              </div>
               
               <div className="space-y-4 flex-grow relative z-10 overflow-y-auto custom-scrollbar pr-2">
                 <div>
@@ -505,7 +520,7 @@ export default function Room() {
                       <div key={c.categoryId} className={`flex items-center border-[2px] ${bColor} shadow-[2px_2px_0px_${shadowColor}] px-2 py-0.5 rounded-md text-[11px] font-bold ${topicTag}`}>
                         {c.category?.name}
                         {isHost && roomDetails?.status !== 'PLAYING' && (
-                          <button onClick={() => handleRemoveCategory(c.categoryId)} className={`ml-1.5 ${removeCatBtn}`}>✕</button>
+                          <button onClick={() => handleRemoveCategory(c.categoryId)} className={`ml-1.5 cursor-pointer ${removeCatBtn}`}>✕</button>
                         )}
                       </div>
                     ))}
@@ -514,7 +529,7 @@ export default function Room() {
 
                 {isHost && roomDetails?.status !== 'PLAYING' && (
                   <div className={`space-y-3 pt-3 border-t-[2px] border-dashed ${isDarkMode ? 'border-slate-700' : 'border-[#1E293B]/20'}`}>
-                    <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className={`w-full border-[2px] ${bColor} shadow-[2px_2px_0px_${shadowColor}] px-3 py-1.5 rounded-lg flex items-center justify-between text-[10px] font-black uppercase transition-colors ${addTopicBtn}`}>
+                    <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className={`w-full border-[2px] ${bColor} shadow-[2px_2px_0px_${shadowColor}] px-3 py-1.5 rounded-lg flex items-center justify-between text-[10px] font-black uppercase transition-colors cursor-pointer ${addTopicBtn}`}>
                       <span>Add Topic</span>
                       <span>{isDropdownOpen ? '▲' : '▼'}</span>
                     </button>
@@ -523,13 +538,13 @@ export default function Room() {
                         {unselectedCategories.length > 1 && (
                           <button 
                             onClick={handleAddAllCategories} 
-                            className={`w-full text-left px-3 py-2 border-b-[2px] ${bColor} font-black text-[10px] uppercase italic transition-colors ${selectAllBtn}`}
+                            className={`w-full text-left px-3 py-2 border-b-[2px] ${bColor} font-black text-[10px] uppercase italic transition-colors cursor-pointer ${selectAllBtn}`}
                           >
                             ⚡ SELECT ALL CATEGORIES
                           </button>
                         )}
                         {unselectedCategories.map(cat => (
-                          <button key={cat.id} onClick={() => handleAddCategory(cat.id)} className={`w-full text-left px-3 py-1.5 border-b-[1px] ${bColor} font-bold text-[10px] uppercase italic transition-colors ${categoryItem}`}>
+                          <button key={cat.id} onClick={() => handleAddCategory(cat.id)} className={`w-full text-left px-3 py-1.5 border-b-[1px] ${bColor} font-bold text-[10px] uppercase italic transition-colors cursor-pointer ${categoryItem}`}>
                             + {cat.name}
                           </button>
                         ))}
@@ -544,7 +559,7 @@ export default function Room() {
                         <label className={`text-[9px] font-black uppercase tracking-tighter ${settingsLabel}`}>Round Time</label>
                         <input type="number" value={settings?.timePerRound ?? 15} onChange={(e) => setSettings({...settings, timePerRound: parseInt(e.target.value) || 0})} className={`w-14 border-[2px] ${bColor} shadow-[2px_2px_0px_${shadowColor}] rounded-md text-center font-black text-xs py-1 ${settingsInput}`} />
                       </div>
-                      <button onClick={handleSaveSettings} disabled={isUpdating} className={`w-full border-[2px] ${bColor} shadow-[2px_2px_0px_${shadowColor}] text-[10px] font-black py-2 rounded-lg uppercase active:translate-y-1 active:shadow-none transition-all ${syncBtn}`}>
+                      <button onClick={handleSaveSettings} disabled={isUpdating} className={`w-full border-[2px] ${bColor} shadow-[2px_2px_0px_${shadowColor}] text-[10px] font-black py-2 rounded-lg uppercase active:translate-y-1 active:shadow-none transition-all cursor-pointer ${syncBtn}`}>
                         Sync System
                       </button>
                     </div>
@@ -555,7 +570,7 @@ export default function Room() {
           </div>
         )}
 
-        {/* PANEL 2: GAME WINDOW (Always top priority on mobile) */}
+        {/* PANEL 2: GAME WINDOW */}
         <div className={`lg:col-span-2 flex flex-col border-[3px] ${bColor} shadow-[8px_8px_0px_${shadowColor}] rounded-3xl overflow-hidden relative order-1 lg:order-2 h-[80dvh] lg:h-full lg:min-h-0 ${panelTexture}`}>
           {roomDetails?.status === 'WAITING' ? (
             <div className="flex flex-col items-center justify-center flex-grow p-6 text-center relative z-10 min-h-0">
@@ -563,7 +578,7 @@ export default function Room() {
               <h2 className={`text-2xl md:text-3xl font-black italic mb-2 uppercase tracking-tighter shrink-0 ${readyText}`}>READY?</h2>
               <p className={`font-black text-[9px] md:text-[10px] mb-6 uppercase tracking-[0.2em] animate-pulse shrink-0 ${waitingText}`}>Waiting for host command...</p>
               {isHost && (
-                <button onClick={handleStartGame} disabled={!roomDetails?.categories?.length} className={`border-[3px] ${bColor} shadow-[4px_4px_0px_${shadowColor}] hover:shadow-[1px_1px_0px_${shadowColor}] font-black py-3 px-8 md:py-4 md:px-10 rounded-full uppercase hover:translate-y-1 transition-all shrink-0 ${startBtn}`}>
+                <button onClick={handleStartGame} disabled={!roomDetails?.categories?.length} className={`border-[3px] ${bColor} shadow-[4px_4px_0px_${shadowColor}] hover:shadow-[1px_1px_0px_${shadowColor}] font-black py-3 px-8 md:py-4 md:px-10 rounded-full uppercase hover:translate-y-1 transition-all shrink-0 cursor-pointer ${startBtn}`}>
                   START GAME
                 </button>
               )}
@@ -576,7 +591,7 @@ export default function Room() {
               </h2>
               <p className="font-black text-[10px] md:text-xs uppercase tracking-[0.4em] mb-8 italic underline underline-offset-8 decoration-4 shrink-0">BHEJA FRY CHAMPION</p>
               {isHost && (
-                <button onClick={() => socket.emit('restart_game', { roomId })} className={`border-[3px] ${bColor} shadow-[4px_4px_0px_${shadowColor}] text-sm md:text-base font-black py-3 px-8 md:py-4 md:px-10 rounded-full uppercase transition-all active:translate-y-1 active:shadow-none shrink-0 ${playAgainBtn}`}>
+                <button onClick={() => socket.emit('restart_game', { roomId })} className={`border-[3px] ${bColor} shadow-[4px_4px_0px_${shadowColor}] text-sm md:text-base font-black py-3 px-8 md:py-4 md:px-10 rounded-full uppercase transition-all active:translate-y-1 active:shadow-none shrink-0 cursor-pointer ${playAgainBtn}`}>
                   PLAY AGAIN
                 </button>
               )}
@@ -666,7 +681,7 @@ export default function Room() {
                   className={`flex-grow border-[2px] ${bColor} rounded-xl px-3 py-2 md:px-4 md:py-3 transition-colors font-black uppercase text-xs sm:text-sm md:text-base tracking-widest shadow-inner min-w-0 ${guessInputClass}`} 
                   autoComplete="off" 
                 />
-                <button type="submit" disabled={hasGuessed || roundState !== 'ACTIVE'} className={`border-[3px] ${bColor} shadow-[4px_4px_0px_${shadowColor}] font-black px-4 md:px-6 rounded-xl uppercase active:translate-y-1 active:shadow-none transition-all disabled:opacity-50 disabled:shadow-none shrink-0 text-sm md:text-base ${sendBtn}`}>
+                <button type="submit" disabled={hasGuessed || roundState !== 'ACTIVE'} className={`border-[3px] ${bColor} shadow-[4px_4px_0px_${shadowColor}] font-black px-4 md:px-6 rounded-xl uppercase active:translate-y-1 active:shadow-none transition-all disabled:opacity-50 disabled:shadow-none shrink-0 text-sm md:text-base cursor-pointer ${sendBtn}`}>
                   SEND
                 </button>
               </form>
@@ -674,9 +689,9 @@ export default function Room() {
           )}
         </div>
 
-        {/* PANEL 3: LEADERBOARD (Middle section on mobile, right on desktop) */}
+        {/* PANEL 3: LEADERBOARD */}
         <div className="flex flex-col gap-4 overflow-hidden order-2 lg:order-3 h-[50dvh] lg:h-full lg:min-h-0">
-          <button onClick={handleLeave} className={`border-[3px] shadow-[4px_4px_0px_#ef4444] py-3 rounded-xl font-black uppercase tracking-[0.2em] text-[10px] active:translate-y-1 active:shadow-none transition-all shrink-0 ${exitRoomBtn}`}>
+          <button onClick={handleLeave} className={`border-[3px] shadow-[4px_4px_0px_#ef4444] py-3 rounded-xl font-black uppercase tracking-[0.2em] text-[10px] active:translate-y-1 active:shadow-none transition-all shrink-0 cursor-pointer ${exitRoomBtn}`}>
             EXIT ROOM
           </button>
 
@@ -708,7 +723,6 @@ export default function Room() {
                     />
                     
                     <div className="flex flex-col flex-grow overflow-hidden">
-                      {/* Name on Left, Points on Right */}
                       <div className="flex items-center justify-between gap-1 md:gap-2">
                         <span className="font-black text-[10px] md:text-sm uppercase truncate flex items-center gap-1 tracking-tight">
                           {p.user.username}
@@ -719,7 +733,6 @@ export default function Room() {
                         </span>
                       </div>
                       
-                      {/* Timestamp underneath */}
                       {p.justGuessed && p.timeTaken && (
                         <span className={`text-[10px] md:text-sm font-black font-mono mt-0.5 px-1.5 md:px-2 py-0.5 rounded-md w-fit border-[2px] ${bColor} ${correctBadge}`}>
                           {p.timeTaken}s
