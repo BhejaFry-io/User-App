@@ -455,9 +455,11 @@ export default function Room() {
         <button 
           onClick={() => setIsLeftPaneOpen(true)}
           title="Open Menu"
-          className={`fixed left-0 top-1/2 -translate-y-1/2 z-50 border-[3px] border-l-0 ${bColor} shadow-[4px_4px_0px_${shadowColor}] rounded-r-xl px-2 py-4 text-sm font-black ${menuBtn} cursor-pointer hover:translate-x-1 transition-all`}
+          className={`fixed left-0 top-1/2 -translate-y-1/2 z-50 border-[3px] border-l-0 ${bColor} shadow-[4px_4px_0px_${shadowColor}] rounded-r-xl px-1 py-4 text-sm font-black flex items-center justify-center ${menuBtn} cursor-pointer hover:translate-x-1 transition-all`}
         >
-          ▶
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
         </button>
       )}
 
@@ -502,9 +504,11 @@ export default function Room() {
                 <button 
                   onClick={() => setIsLeftPaneOpen(false)} 
                   title="Close Menu"
-                  className={`cursor-pointer border-[2px] ${bColor} shadow-[2px_2px_0px_${shadowColor}] rounded-md px-2 py-0.5 text-[10px] hover:translate-x-0.5 transition-transform ${menuBtn}`}
+                  className={`cursor-pointer border-[2px] ${bColor} shadow-[2px_2px_0px_${shadowColor}] rounded-md p-1 flex items-center justify-center hover:-translate-x-0.5 transition-transform ${menuBtn}`}
                 >
-                  ◀
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                  </svg>
                 </button>
               </div>
               
