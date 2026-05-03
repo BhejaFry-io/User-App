@@ -33,7 +33,7 @@ apiClient.interceptors.response.use(
       localStorage.removeItem('user');
       
       // Force reload the page to clear React state and send them to the login screen
-      window.location.href = '/login?expired=true';
+      window.location.href = '/?expired=true';
     }
     return Promise.reject(error); // Reject the promise so your component catch blocks still fire
   }

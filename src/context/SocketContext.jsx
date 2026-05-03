@@ -34,7 +34,7 @@ export const SocketProvider = ({ children }) => {
           localStorage.removeItem('user');
           
           // Instantly kick them to the login page so they can refresh their session
-          window.location.href = '/login?expired=true';
+          window.location.href = '/?expired=true';
         }
       });
 
